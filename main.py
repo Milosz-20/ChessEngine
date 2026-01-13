@@ -1,16 +1,11 @@
-# This is a sample Python script.
+from chess_engine import Bitboard
 
-# Press Ctrl+F5 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+if __name__ == "__main__":
+    board = Bitboard()
 
+    sq = 27
+    print(f"List of moves for knight on square {sq} (in start position):")
+    moves = board.get_knight_moves(sq, isWhite=True)
+    board.print_bb(moves)
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press F9 to toggle the breakpoint.
-
-
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    # board.print_full_board()

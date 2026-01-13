@@ -137,14 +137,3 @@ class Bitboard:
             board_output += f'\n'
         board_output += '  a b c d e f g h'
         print(board_output)
-
-
-if __name__ == "__main__":
-    board = Bitboard()
-
-    sq = 27
-    print(f"List of moves for knight on square {sq} (in start position):")
-    moves = board.get_knight_moves(sq, isWhite=True)
-    board.print_bb(moves)
-
-    # board.print_full_board()
