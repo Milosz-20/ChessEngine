@@ -5,73 +5,144 @@ FILE_B = FILE_A << 1
 FILE_G = FILE_A << 6
 FILE_H = FILE_A << 7
 
+# Full board mask (all 64 bits set)
+FULL_BOARD_MASK = 0xFFFFFFFFFFFFFFFF
+
 # Combined masks (needed for knights)
 # Knight moving two tiles to the left cannot stand on either A or B
-NOT_FILE_A = ~FILE_A & 0xFFFFFFFFFFFFFFFF
-NOT_FILE_B = ~FILE_B & 0xFFFFFFFFFFFFFFFF
-NOT_FILE_G = ~FILE_G & 0xFFFFFFFFFFFFFFFF
-NOT_FILE_H = ~FILE_H & 0xFFFFFFFFFFFFFFFF
+NOT_FILE_A = ~FILE_A & FULL_BOARD_MASK
+NOT_FILE_B = ~FILE_B & FULL_BOARD_MASK
+NOT_FILE_G = ~FILE_G & FULL_BOARD_MASK
+NOT_FILE_H = ~FILE_H & FULL_BOARD_MASK
 
 NOT_FILE_AB = NOT_FILE_A & NOT_FILE_B
 NOT_FILE_GH = NOT_FILE_G & NOT_FILE_H
 
+NORTH = 8
+NORTH_EAST = 9
+EAST = 1
+SOUTH_EAST = -7
+SOUTH = -8
+SOUTH_WEST = -9
+WEST = -1
+NORTH_WEST = 7
+
+def _init_king_moves():
+    """
+    Initialize lookup table for king moves from all 64 squares.
+
+    King can move one square in any direction (8 possible moves).
+    Moves are restricted by board edges and file boundaries.
+
+    Returns:
+        list: List of 64 integers (bitboards), where each represents
+              all possible king moves from that square index.
+    """
+    moves_list = [0] * 64
+
+    for square in range(64):
+        moves = 0
+        position = 1 << square
+
+        # 1. North
+        target = square + NORTH
+        if 0 <= target < 64: moves |= (1 << target)
+
+        # 2. East + diagonals
+        if position & NOT_FILE_H:
+            target = square + NORTH_EAST
+            if 0 <= target < 64: moves |= (1 << target)
+
+            target = square + EAST
+            if 0 <= target < 64: moves |= (1 << target)
+
+            target = square + SOUTH_EAST
+            if 0 <= target < 64: moves |= (1 << target)
+
+        # 3. South
+        target = square + SOUTH
+        if 0 <= target < 64: moves |= (1 << target)
+
+        # 4. West + diagonals
+        if position & NOT_FILE_A:
+            target = square + SOUTH_WEST
+            if 0 <= target < 64: moves |= (1 << target)
+
+            target = square + WEST
+            if 0 <= target < 64: moves |= (1 << target)
+
+            target = square + NORTH_WEST
+            if 0 <= target < 64: moves |= (1 << target)
+
+        moves_list[square] = moves
+    return moves_list
 
 def _init_knight_moves():
+    """
+    Initialize lookup table for knight moves from all 64 squares.
+
+    Knight moves in an L-shape: 2 squares in one direction and 1 square
+    perpendicular (8 possible moves). Moves are restricted by board edges
+    and file boundaries.
+
+    Returns:
+        list: List of 64 integers (bitboards), where each represents
+              all possible knight moves from that square index.
+    """
     moves_list = [0] * 64
 
     for square in range(64):
         moves = 0
         position = 1 << square  # Bitboard with only the knight on the specific square
 
-        # General rule: cannot exceed the board (0 <= index < 64)
+        # 1. NORTH NORTH EAST
+        target = square + 2*NORTH + EAST
+        if 0 <= target < 64 and (position & NOT_FILE_H):
+            moves |= (1 << target)
 
-        # 1. Adding (moving up)
+        # 2. NORTH NORTH WEST
+        target = square + 2*NORTH + WEST
+        if 0 <= target < 64 and (position & NOT_FILE_A):
+            moves |= (1 << target)
 
-        # Moves 'up up right' (index +17)
-        # Rule: cannot be on file H
-        if (square + 17) < 64 and (position & NOT_FILE_H):
-            moves |= (1 << (square + 17))
+        # 3. 'NORTH EAST EAST'
+        target = square + NORTH + 2*EAST
+        if 0 <= target < 64 and (position & NOT_FILE_GH):
+            moves |= (1 << target)
 
-        # Moves 'up up left' (index +15)
-        # Rule: cannot be on file A
-        if (square + 15) < 64 and (position & NOT_FILE_A):
-            moves |= (1 << (square + 15))
+        # 4. NORTH WEST WEST
+        target = square + NORTH + 2*WEST
+        if 0 <= target < 64 and (position & NOT_FILE_AB):
+            moves |= (1 << target)
 
-        # Moves 'up right right' (index +10)
-        # Rule: cannot be on file G or H
-        if (square + 10) < 64 and (position & NOT_FILE_GH):
-            moves |= (1 << (square + 10))
+        # 5. SOUTH SOUTH EAST
+        target = square + 2*SOUTH + EAST
+        if 0 <= target < 64 and (position & NOT_FILE_H):
+            moves |= (1 << target)
 
-        # Moves 'up left left' (index +6)
-        # Rule: cannot be on file A or B
-        if (square + 6) < 64 and (position & NOT_FILE_AB):
-            moves |= (1 << (square + 6))
+        # 6. SOUTH SOUTH WEST
+        target = square + 2*SOUTH + WEST
+        if 0 <= target < 64 and (position & NOT_FILE_A):
+            moves |= (1 << target)
 
-        # 2. Subtracting (moving down)
+        # 7. SOUTH EAST EAST
+        target = square + SOUTH + 2*EAST
+        if 0 <= target < 64 and (position & NOT_FILE_GH):
+            moves |= (1 << target)
 
-        # Moves 'down down right' (index -15)
-        # Rule: cannot be on file H
-        if (square - 15) >= 0 and (position & NOT_FILE_H):
-            moves |= (1 << (square - 15))
-
-        # Moves 'down down left' (index -17)
-        # Rule: cannot be on file A
-        if (square - 17) >= 0 and (position & NOT_FILE_A):
-            moves |= (1 << (square - 17))
-
-        # Moves 'down right right' (index -6)
-        # Rule: cannot be on file G or H
-        if (square - 6) >= 0 and (position & NOT_FILE_GH):
-            moves |= (1 << (square - 6))
-
-        # Moves 'down left left' (index -10)
-        # Rule: cannot be on file A or B
-        if (square - 10) >= 0 and (position & NOT_FILE_AB):
-            moves |= (1 << (square - 10))
+        # 8. SOUTH WEST WEST
+        target = square + SOUTH + 2*WEST
+        if 0 <= target < 64 and (position & NOT_FILE_AB):
+            moves |= (1 << target)
 
         moves_list[square] = moves
 
     return moves_list
+
+
+# Initialize move tables once at module level for better performance
+KNIGHT_MOVES_TABLE = _init_knight_moves()
+KING_MOVES_TABLE = _init_king_moves()
 
 
 class Bitboard:
@@ -90,22 +161,76 @@ class Bitboard:
         self.bq = 0x0800000000000000  # Black Queen
         self.bk = 0x1000000000000000  # Black King
 
-        self.knight_table = _init_knight_moves() # Full board of available knight moves
+        # Reference to pre-calculated move tables
+        self.knight_table = KNIGHT_MOVES_TABLE
+        self.king_table = KING_MOVES_TABLE
 
-    def get_knight_moves(self, square, isWhite):
-        possible_moves = self.knight_table[square]
+    def get_occupancy(self, is_white):
+        """
+        Get bitboard of all pieces for a given color.
 
-        if isWhite: # Check to not step on your own piece
-            own_pieces = self.wp | self.wn | self.wb | self.wr | self.wq | self.wk
+        Args:
+            is_white: True for white pieces, False for black pieces
+
+        Returns:
+            int: Bitboard with all pieces of the specified color
+        """
+        if is_white:
+            return self.wp | self.wn | self.wb | self.wr | self.wq | self.wk
         else:
-            own_pieces = self.bp | self.bn | self.bb | self.br | self.bq | self.bk
+            return self.bp | self.bn | self.bb | self.br | self.bq | self.bk
 
-        valid_moves =  possible_moves & ~own_pieces
+    def get_knight_moves(self, square, is_white):
+        """
+        Get valid knight moves from a given square.
+
+        Args:
+            square: Square index (0-63)
+            is_white: True for white pieces, False for black
+
+        Returns:
+            int: Bitboard of valid knight moves
+
+        Raises:
+            ValueError: If square is out of range [0-63]
+        """
+        if not 0 <= square < 64:
+            raise ValueError(f"Square {square} out of range [0-63]")
+
+        possible_moves = self.knight_table[square]
+        own_pieces = self.get_occupancy(is_white)
+        valid_moves = possible_moves & ~own_pieces
         return valid_moves
 
-    # Helper function to display bitboard of valid moves for some piece
+    def get_king_moves(self, square, is_white):
+        """
+        Get valid king moves from a given square.
+
+        Args:
+            square: Square index (0-63)
+            is_white: True for white pieces, False for black
+
+        Returns:
+            int: Bitboard of valid king moves
+
+        Raises:
+            ValueError: If square is out of range [0-63]
+        """
+        if not 0 <= square < 64:
+            raise ValueError(f"Square {square} out of range [0-63]")
+
+        possible_moves = self.king_table[square]
+        own_pieces = self.get_occupancy(is_white)
+        valid_moves = possible_moves & ~own_pieces
+        return valid_moves
+
     def print_bb(self, bb):
-        print("  a b c d e f g h")
+        """
+        Display a bitboard in a visual chess board format.
+
+        Args:
+            bb: Bitboard to display (64-bit integer)
+        """
         for r in range(7, -1, -1):
             line = f"{r+1} "
             for f in range(8):
@@ -115,8 +240,16 @@ class Bitboard:
                 else:
                     line += ". "
             print(line)
+        print('  a b c d e f g h')
 
     def print_full_board(self):
+        """
+        Display the complete chess board with all pieces.
+
+        White pieces: P (pawn), N (knight), B (bishop), R (rook), Q (queen), K (king)
+        Black pieces: p, n, b, r, q, k (lowercase)
+        Empty squares: .
+        """
         piece_map = {
             'P': self.wp, 'N': self.wn, 'B': self.wb, 'R': self.wr, 'Q': self.wq, 'K': self.wk,
             'p': self.bp, 'n': self.bn, 'b': self.bb, 'r': self.br, 'q': self.bq, 'k': self.bk
