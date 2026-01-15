@@ -139,11 +139,128 @@ def _init_knight_moves():
 
     return moves_list
 
+def count_bits(bitboard):
+    """
+    Counts the number of set bits (1s) in a bitboard.
+
+    Uses Brian Kernighan's algorithm to clear the least significant bit
+    in each iteration, which is efficient for sparse bitboards.
+
+    Args:
+        bitboard: The integer (bitboard) to count bits in.
+
+    Returns:
+        int: The number of set bits.
+    """
+    count = 0
+    while bitboard:
+        count += 1
+        bitboard &= bitboard - 1
+    return count
+
+def set_bit(bitboard, bit):
+    """
+    Sets the bit at the given index to 1 in the bitboard.
+
+    How it works:
+    1. (1 << bit) creates a mask with a single 1 at the specified index.
+       e.g., if bit=2: 1 << 2 = 100 (binary)
+    2. The bitwise OR (|) operator combines the bitboard with this mask.
+       This ensures the bit at 'index' becomes 1, leaving others unchanged.
+
+    Args:
+        bitboard: The bitboard integer.
+        bit: The index of the bit to set (0-63).
+
+    Returns:
+        int: The new bitboard with the bit set.
+    """
+    return bitboard | (1 << bit)
+
+def get_rook_mask(square):
+    """
+    Generates a mask of relevant occupancy bits for a rook on the given square.
+
+    This mask includes all squares that could potentially block a rook's movement,
+    excluding the edges of the board. This is used for generating magic bitboards,
+    where the occupancy of the edge squares does not affect the set of attacked squares
+    behind them (since the piece stops at the edge anyway).
+
+    Args:
+        square: The square index (0-63) of the rook.
+
+    Returns:
+        int: Bitboard mask of relevant occupancy bits.
+    """
+    mask = 0
+    rank, file = divmod(square, 8)
+
+    # NORTH
+    for r in range(rank + 1, 7): mask |= (1 << (r * 8 + file))
+
+    # EAST
+    for f in range(file + 1, 7): mask |= (1 << (rank * 8 + f))
+
+    # SOUTH
+    for r in range(rank - 1, 0, -1): mask |= (1 << (r * 8 + file))
+
+    # WEST
+    for f in range(file - 1, 0, -1): mask |= (1 << (rank * 8 + f))
+
+    return mask
+
+def get_bishop_mask(square):
+    """
+    Generates a mask of relevant occupancy bits for a bishop on the given square.
+
+    Similar to get_rook_mask, this includes squares along the diagonals that could
+    block the bishop, excluding the board edges. This reduced mask is used for
+    magic bitboard table lookups to keep the table size manageable.
+
+    Args:
+        square: The square index (0-63) of the bishop.
+
+    Returns:
+        int: Bitboard mask of relevant occupancy bits.
+    """
+    mask = 0
+    rank, file = divmod(square, 8)
+
+    # NORTH-EAST
+    r, f = rank + 1, file + 1
+    while r < 7 and f < 7:
+        mask |= (1 << (r * 8 + f))
+        r += 1
+        f += 1
+
+    # SOUTH-EAST
+    r, f = rank - 1, file + 1
+    while r > 0 and f < 7:
+        mask |= (1 << (r * 8 + f))
+        r -= 1
+        f += 1
+
+    # SOUTH-WEST
+    r, f = rank - 1, file - 1
+    while r > 0 and f > 0:
+        mask |= (1 << (r * 8 + f))
+        r -= 1
+        f -= 1
+
+    # NORTH-WEST
+    r, f = rank + 1, file -1
+    while r < 7 and f > 0:
+        mask |= (1 << (r * 8 + f))
+        r += 1
+        f -= 1
+
+    return mask
+
+
 
 # Initialize move tables once at module level for better performance
 KNIGHT_MOVES_TABLE = _init_knight_moves()
 KING_MOVES_TABLE = _init_king_moves()
-
 
 class Bitboard:
     def __init__(self):
