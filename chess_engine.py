@@ -256,7 +256,77 @@ def get_bishop_mask(square):
 
     return mask
 
+def rook_attacks_on_the_fly(square, blockers):
+    attacks = 0
+    rank, file = divmod(square, 8)
 
+    # NORTH
+    for r in range(rank + 1, 8):
+        target = r * 8 + file
+        attacks |= (1 << target)
+        if (1 << target) & blockers: break
+
+    # EAST
+    for f in range(file + 1, 8):
+        target = rank * 8 + f
+        attacks |= (1 << target)
+        if (1 << target) & blockers: break
+
+    # SOUTH
+    for r in range(rank - 1, -1, -1):
+        target = r * 8 + file
+        attacks |= (1 << target)
+        if (1 << target) & blockers: break
+
+    # WEST
+    for f in range(file - 1, -1, -1):
+        target = rank * 8 + f
+        attacks |= (1 << target)
+        if (1 << target) & blockers: break
+
+    return attacks
+
+def bishop_attacks_on_the_fly(square, blockers):
+    attacks = 0
+    rank, file = divmod(square, 8)
+
+    # NORTH-EAST
+    r, f = rank + 1, file + 1
+    while r < 8 and f < 8:
+        target = r * 8 + f
+        attacks |= (1 << target)
+        if (1 << target) & blockers: break
+        r += 1
+        f += 1
+
+    # SOUTH-EAST
+    r, f = rank - 1, file + 1
+    while r >= 0 and f < 8:
+        target = r * 8 + f
+        attacks |= (1 << target)
+        if (1 << target) & blockers: break
+        r -= 1
+        f += 1
+
+    # SOUTH-WEST
+    r, f = rank - 1, file - 1
+    while r >= 0 and f >= 0:
+        target = r * 8 + f
+        attacks |= (1 << target)
+        if (1 << target) & blockers: break
+        r -= 1
+        f -= 1
+
+    # NORTH-WEST
+    r, f = rank + 1, file - 1
+    while r < 8 and f >= 0:
+        target = r * 8 + f
+        attacks |= (1 << target)
+        if (1 << target) & blockers: break
+        r += 1
+        f -= 1
+
+    return attacks
 
 # Initialize move tables once at module level for better performance
 KNIGHT_MOVES_TABLE = _init_knight_moves()
