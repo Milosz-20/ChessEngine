@@ -206,6 +206,22 @@ class Bitboard:
 
             moves |= self.black_pawn_attacks[square] & enemy_occupancy
         return moves
+
+    def get_piece_at(self, square):
+        """
+        Zwraca nazwę atrybutu figury stojącej na danym polu (np. "wn"),
+        albo None, jeśli pole jest puste.
+        """
+        piece_map = {
+            'wp': self.wp, 'wn': self.wn, 'wb': self.wb,
+            'wr': self.wr, 'wq': self.wq, 'wk': self.wk,
+            'bp': self.bp, 'bn': self.bn, 'bb': self.bb,
+            'br': self.br, 'bq': self.bq, 'bk': self.bk,
+        }
+        for name, bitboard in piece_map.items():
+            if (bitboard >> square) & 1:
+                return name
+        return None
     
     def print_bitboard(self, bitboard):
         """

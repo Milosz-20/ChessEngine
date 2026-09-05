@@ -229,6 +229,18 @@ def set_bit(bitboard, bit):
     """
     return bitboard | (1 << bit)
 
+def get_set_bits(bitboard):
+    """
+    Zwraca listę indeksów (0-63) wszystkich ustawionych bitów w bitboardzie.
+    """
+    indices = []
+    while bitboard:
+        lsb = bitboard & -bitboard
+        index = lsb.bit_length() - 1
+        indices.append(index)
+        bitboard &= (bitboard - 1)
+    return indices
+
 def generate_occupancy_variations(mask):
     """Generates all possible sub-masks (occupancies) for a given mask."""
     variations = []
