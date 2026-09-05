@@ -5,6 +5,10 @@ FILE_B = FILE_A << 1
 FILE_G = FILE_A << 6
 FILE_H = FILE_A << 7
 
+# Starting ranks for pawns (used to allow double pushes)
+RANK_2 = 0x000000000000FF00
+RANK_7 = 0x00FF000000000000
+
 # Full board mask (all 64 bits set)
 FULL_BOARD_MASK = 0xFFFFFFFFFFFFFFFF
 
@@ -134,6 +138,54 @@ def _init_knight_moves():
         target = square + SOUTH + 2*WEST
         if 0 <= target < 64 and (position & NOT_FILE_AB):
             moves |= (1 << target)
+
+        moves_list[square] = moves
+
+    return moves_list
+
+def _init_white_pawn_attacks():
+    """
+    Initialize lookup table for white pawn attacks (diagonal captures only)
+    from all 64 squares.
+    """
+    
+    moves_list = [0] * 64
+
+    for square in range(64):
+        moves = 0
+        position = 1 << square
+
+        if position & NOT_FILE_A:
+            target = square + NORTH_WEST
+            if 0 <= target < 64: moves |= (1 << target)
+
+        if position & NOT_FILE_H:
+            target = square + NORTH_EAST
+            if 0 <= target < 64: moves |= (1 << target)
+
+        moves_list[square] = moves
+
+    return moves_list
+
+def _init_black_pawn_attacks(): 
+    """
+    Initialize lookup table for black pawn attacks (diagonal captures only)
+    from all 64 squares.
+    """
+    
+    moves_list = [0] * 64
+
+    for square in range(64):
+        moves = 0
+        position = 1 << square
+
+        if position & NOT_FILE_A:
+            target = square + SOUTH_WEST
+            if 0 <= target < 64: moves |= (1 << target)
+
+        if position & NOT_FILE_H:
+            target = square + SOUTH_EAST
+            if 0 <= target < 64: moves |= (1 << target)
 
         moves_list[square] = moves
 

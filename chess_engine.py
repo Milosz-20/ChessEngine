@@ -1,11 +1,14 @@
 import json
 import os
-from helpers import _init_knight_moves, _init_king_moves, count_bits, generate_occupancy_variations, FULL_BOARD_MASK, \
+from helpers import _init_knight_moves, _init_king_moves, _init_white_pawn_attacks, _init_black_pawn_attacks, \
+    count_bits, generate_occupancy_variations, FULL_BOARD_MASK, RANK_2, RANK_7, \
     rook_attacks_on_the_fly, bishop_attacks_on_the_fly
 
 # Initialize move tables once at module level for better performance
 KNIGHT_MOVES_TABLE = _init_knight_moves()
 KING_MOVES_TABLE = _init_king_moves()
+WHITE_PAWN_ATTACKS_TABLE = _init_white_pawn_attacks()
+BLACK_PAWN_ATTACKS_TABLE = _init_black_pawn_attacks()
 
 class MagicManager:
     def __init__(self):
@@ -23,7 +26,7 @@ class MagicManager:
             self.rook_magics = data["rook"]
             self.bishop_magics = data["bishop"]
 
-        # 3. Initialize the lookup tables (This call was missing)
+        # 3. Initialize the lookup tables
         self._init_attacks_tables()
 
     def _init_attacks_tables(self):
@@ -75,6 +78,8 @@ class Bitboard:
         # Reference to pre-calculated move tables
         self.knight_table = KNIGHT_MOVES_TABLE
         self.king_table = KING_MOVES_TABLE
+        self.white_pawn_attacks = WHITE_PAWN_ATTACKS_TABLE
+        self.black_pawn_attacks = BLACK_PAWN_ATTACKS_TABLE
 
         self.magics = MagicManager()
 
@@ -137,6 +142,71 @@ class Bitboard:
         valid_moves = possible_moves & ~own_pieces
         return valid_moves
 
+    def get_queen_moves(self, square, is_white):
+        """
+        Get valid queen moves from a given square: combines rook and
+        bishop attacks (queen moves like both combined).
+
+        Args:
+            square: Square index (0-63)
+            is_white: True for white pieces, False for black
+
+        Returns:
+            int: Bitboard of valid queen moves
+
+        Raises:
+            ValueError: If square is out of range [0-63]
+        """
+        if not 0 <= square < 64:
+            raise ValueError(f"Square {square} out of range [0-63]")
+
+        all_occupancy = self.get_occupancy(True) | self.get_occupancy(False)
+        own_pieces = self.get_occupancy(is_white)
+
+        rook_moves = self.magics.get_rook_attacks(square, all_occupancy)
+        bishop_moves = self.magics.get_bishop_attacks(square, all_occupancy)
+
+        possible_moves = rook_moves | bishop_moves
+        valid_moves = possible_moves & ~own_pieces
+        return valid_moves
+
+    def get_pawn_moves(self, square, is_white):
+        """
+        Get valid pawn moves from a given square: single/double push and
+        diagonal captures. Does not account for promotion or en passant.
+        """
+
+        if not 0 <= square < 64:
+            raise ValueError(f"Square {square} out of range [0-63]")
+
+        all_occupancy = self.get_occupancy(True) | self.get_occupancy(False)
+        enemy_occupancy = self.get_occupancy(not is_white)
+
+        moves = 0
+
+        if is_white:
+            single_push = (1 << (square + 8)) if square + 8 < 64 else 0
+            single_push &= ~all_occupancy
+            moves |= single_push
+
+            if single_push and ((1 << square) & RANK_2):
+                double_push = (1 << (square + 16)) & ~all_occupancy
+                moves |= double_push
+
+            moves |= self.white_pawn_attacks[square] & enemy_occupancy
+
+        else:
+            single_push = (1 << (square - 8)) if square - 8 >= 0 else 0
+            single_push &= ~all_occupancy
+            moves |= single_push
+
+            if single_push and ((1 << square) & RANK_7):
+                double_push = (1 << (square - 16)) & ~all_occupancy
+                moves |= double_push
+
+            moves |= self.black_pawn_attacks[square] & enemy_occupancy
+        return moves
+    
     def print_bitboard(self, bitboard):
         """
         Display a bitboard in a visual chess board format.
