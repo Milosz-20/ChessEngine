@@ -2,7 +2,8 @@ import json
 import os
 from helpers import _init_knight_moves, _init_king_moves, _init_white_pawn_attacks, _init_black_pawn_attacks, \
     count_bits, generate_occupancy_variations, FULL_BOARD_MASK, RANK_2, RANK_7, \
-    rook_attacks_on_the_fly, bishop_attacks_on_the_fly
+    rook_attacks_on_the_fly, bishop_attacks_on_the_fly, get_set_bits
+from move import Move
 
 # Initialize move tables once at module level for better performance
 KNIGHT_MOVES_TABLE = _init_knight_moves()
@@ -98,78 +99,6 @@ class Bitboard:
         else:
             return self.bp | self.bn | self.bb | self.br | self.bq | self.bk
 
-    def get_knight_moves(self, square, is_white):
-        """
-        Get valid knight moves from a given square.
-
-        Args:
-            square: Square index (0-63)
-            is_white: True for white pieces, False for black
-
-        Returns:
-            int: Bitboard of valid knight moves
-
-        Raises:
-            ValueError: If square is out of range [0-63]
-        """
-        if not 0 <= square < 64:
-            raise ValueError(f"Square {square} out of range [0-63]")
-
-        possible_moves = self.knight_table[square]
-        own_pieces = self.get_occupancy(is_white)
-        valid_moves = possible_moves & ~own_pieces
-        return valid_moves
-
-    def get_king_moves(self, square, is_white):
-        """
-        Get valid king moves from a given square.
-
-        Args:
-            square: Square index (0-63)
-            is_white: True for white pieces, False for black
-
-        Returns:
-            int: Bitboard of valid king moves
-
-        Raises:
-            ValueError: If square is out of range [0-63]
-        """
-        if not 0 <= square < 64:
-            raise ValueError(f"Square {square} out of range [0-63]")
-
-        possible_moves = self.king_table[square]
-        own_pieces = self.get_occupancy(is_white)
-        valid_moves = possible_moves & ~own_pieces
-        return valid_moves
-
-    def get_queen_moves(self, square, is_white):
-        """
-        Get valid queen moves from a given square: combines rook and
-        bishop attacks (queen moves like both combined).
-
-        Args:
-            square: Square index (0-63)
-            is_white: True for white pieces, False for black
-
-        Returns:
-            int: Bitboard of valid queen moves
-
-        Raises:
-            ValueError: If square is out of range [0-63]
-        """
-        if not 0 <= square < 64:
-            raise ValueError(f"Square {square} out of range [0-63]")
-
-        all_occupancy = self.get_occupancy(True) | self.get_occupancy(False)
-        own_pieces = self.get_occupancy(is_white)
-
-        rook_moves = self.magics.get_rook_attacks(square, all_occupancy)
-        bishop_moves = self.magics.get_bishop_attacks(square, all_occupancy)
-
-        possible_moves = rook_moves | bishop_moves
-        valid_moves = possible_moves & ~own_pieces
-        return valid_moves
-
     def get_pawn_moves(self, square, is_white):
         """
         Get valid pawn moves from a given square: single/double push and
@@ -207,6 +136,103 @@ class Bitboard:
             moves |= self.black_pawn_attacks[square] & enemy_occupancy
         return moves
 
+    def get_knight_moves(self, square, is_white):
+        """
+        Get valid knight moves from a given square.
+
+        Args:
+            square: Square index (0-63)
+            is_white: True for white pieces, False for black
+
+        Returns:
+            int: Bitboard of valid knight moves
+
+        Raises:
+            ValueError: If square is out of range [0-63]
+        """
+        if not 0 <= square < 64:
+            raise ValueError(f"Square {square} out of range [0-63]")
+
+        possible_moves = self.knight_table[square]
+        own_pieces = self.get_occupancy(is_white)
+        valid_moves = possible_moves & ~own_pieces
+        return valid_moves
+
+    def get_bishop_moves(self, square, is_white):
+        """
+        Get valid bishop moves from a given square using magic bitboards.
+
+        Args:
+            square: Square index (0-63)
+            is_white: True for white pieces, False for black
+
+        Returns:
+            int: Bitboard of valid bishop moves
+
+        Raises:
+            ValueError: If square is out of range [0-63]
+        """
+        if not 0 <= square < 64:
+            raise ValueError(f"Square {square} out of range [0-63]")
+
+        all_occupancy = self.get_occupancy(True) | self.get_occupancy(False)
+        own_pieces = self.get_occupancy(is_white)
+
+        possible_moves = self.magics.get_bishop_attacks(square, all_occupancy)
+        valid_moves = possible_moves & ~own_pieces
+        return valid_moves
+
+    def get_rook_moves(self, square, is_white):
+        """
+        Get valid rook moves from a given square using magic bitboards.
+
+        Args:
+            square: Square index (0-63)
+            is_white: True for white pieces, False for black
+
+        Returns:
+            int: Bitboard of valid rook moves
+
+        Raises:
+            ValueError: If square is out of range [0-63]
+        """
+        if not 0 <= square < 64:
+            raise ValueError(f"Square {square} out of range [0-63]")
+
+        all_occupancy = self.get_occupancy(True) | self.get_occupancy(False)
+        own_pieces = self.get_occupancy(is_white)
+
+        possible_moves = self.magics.get_rook_attacks(square, all_occupancy)
+        valid_moves = possible_moves & ~own_pieces
+        return valid_moves
+
+    def get_king_moves(self, square, is_white):
+        """
+        Get valid king moves from a given square.
+
+        Args:
+            square: Square index (0-63)
+            is_white: True for white pieces, False for black
+
+        Returns:
+            int: Bitboard of valid king moves
+
+        Raises:
+            ValueError: If square is out of range [0-63]
+        """
+        if not 0 <= square < 64:
+            raise ValueError(f"Square {square} out of range [0-63]")
+
+        possible_moves = self.king_table[square]
+        own_pieces = self.get_occupancy(is_white)
+        valid_moves = possible_moves & ~own_pieces
+        return valid_moves
+
+    def get_queen_moves(self, square, is_white):
+        if not 0 <= square < 64:
+            raise ValueError(f"Square {square} out of range [0-63]")
+        return self.get_rook_moves(square, is_white) | self.get_bishop_moves(square, is_white)
+
     def get_piece_at(self, square):
         """
         Zwraca nazwę atrybutu figury stojącej na danym polu (np. "wn"),
@@ -222,6 +248,42 @@ class Bitboard:
             if (bitboard >> square) & 1:
                 return name
         return None
+
+    def generate_pseudo_legal_moves(self, is_white):
+        moves = []
+        prefix = 'w' if is_white else 'b'
+        move_getters = {
+            'n': self.get_knight_moves,
+            'k': self.get_king_moves,
+            'r': self.get_rook_moves,
+            'b': self.get_bishop_moves,
+            'q': self.get_queen_moves,
+            'p': self.get_pawn_moves,
+        }
+        for piece_type, get_moves in move_getters.items():
+            attr = prefix + piece_type
+            bitboard = getattr(self, attr)
+
+            for from_sq in get_set_bits(bitboard):
+                targets = get_moves(from_sq, is_white)
+
+                for to_sq in get_set_bits(targets):
+                    captured = self.get_piece_at(to_sq)
+
+                    if piece_type == 'p':
+                        is_promotion = (to_sq >= 56) if is_white else (to_sq <= 7)
+                        if is_promotion:
+                            for promo in ('q', 'r', 'b', 'n'):
+                                moves.append(Move(from_sq, to_sq, attr, captured_piece = captured, 
+                                                  promotion_piece = prefix + promo))
+                            continue
+
+                        is_double = abs(to_sq - from_sq) == 16
+                        moves.append(Move(from_sq, to_sq, attr, captured_piece = captured,
+                                          is_double_push = is_double))
+                    else:
+                        moves.append(Move(from_sq, to_sq, attr, captured_piece = captured)) 
+        return moves
     
     def print_bitboard(self, bitboard):
         """
