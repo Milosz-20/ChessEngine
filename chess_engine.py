@@ -82,6 +82,13 @@ class Bitboard:
         self.white_pawn_attacks = WHITE_PAWN_ATTACKS_TABLE
         self.black_pawn_attacks = BLACK_PAWN_ATTACKS_TABLE
 
+        self.side_to_move = True
+        self.castling_rights = {'K': True, 'Q': True, 'k': True, 'q': True}
+        self.en_passant_square = None # en passant target square: index of the square skipped by a pawn's double move
+        self.halfmove_clock = 0
+
+        self.history = []
+
         self.magics = MagicManager()
 
     def get_occupancy(self, is_white):
@@ -284,6 +291,48 @@ class Bitboard:
                     else:
                         moves.append(Move(from_sq, to_sq, attr, captured_piece = captured)) 
         return moves
+
+    def make_move(self, move):
+        undo_info = {
+            'en_passant_square': self.en_passant_square,
+            'castling_rights': dict(self.castling_rights),
+            'halfmove_clock': self.halfmove_clock
+        }
+        self.history.append(undo_info)
+
+        setattr(self, move.piece, getattr(self, move.piece) & ~(1 << move.from_sq))
+
+        if move.captured_piece:
+            capture_sq = move.to_sq
+            if move.is_en_passant:
+                capture_sq = move.to_sq - 8 if move.piece[0] == 'w' else move.to_sq + 8
+            setattr(self, move.captured_piece, getattr(self, move.captured_piece) & ~(1 << capture_sq))
+
+        dest_piece = move.promotion_piece if move.promotion_piece else move.piece
+        setattr(self, dest_piece, getattr(self, dest_piece) |  (1 << move.to_sq))
+
+        self.side_to_move = not self.side_to_move
+
+    def unmake_move(self, move):
+        self.side_to_move = not self.side_to_move
+
+        dest_piece = move.promotion_piece if move.promotion_piece else move.piece
+        setattr(self, dest_piece, getattr(self, dest_piece) & ~(1 << move.to_sq))
+
+        setattr(self, move.piece, getattr(self, move.piece) | (1 << move.from_sq))
+
+        if move.captured_piece:
+            capture_sq = move.to_sq
+            if move.is_en_passant:
+                capture_sq = move.to_sq - 8 if move.piece[0] == 'w' else move.to_sq + 8
+            setattr(self, move.captured_piece, getattr(self, move.captured_piece) | (1 << capture_sq))
+
+        undo_info = self.history.pop()
+        self.en_passant_square = undo_info['en_passant_square']
+        self.castling_rights = undo_info['castling_rights']
+        self.halfmove_clock = undo_info['halfmove_clock']
+        
+
     
     def print_bitboard(self, bitboard):
         """
