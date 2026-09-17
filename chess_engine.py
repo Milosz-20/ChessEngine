@@ -332,7 +332,44 @@ class Bitboard:
         self.castling_rights = undo_info['castling_rights']
         self.halfmove_clock = undo_info['halfmove_clock']
         
+    def is_square_attacked(self, square, by_white):
+        enemy_prefix = 'w' if by_white else 'b'
 
+        if self.knight_table[square] & getattr(self, enemy_prefix + 'n'):
+            return True
+        if self.king_table[square] & getattr(self, enemy_prefix + 'k'):
+            return True
+        
+        all_occupancy = self.get_occupancy(True) | self.get_occupancy(False)
+
+        rook_queen = getattr(self, enemy_prefix + 'r') | getattr(self, enemy_prefix + 'q')
+        if self.magics.get_rook_attacks(square, all_occupancy) & rook_queen:
+            return True
+        bishop_queen = getattr(self, enemy_prefix + 'b') | getattr(self, enemy_prefix + 'q')
+        if self.magics.get_bishop_attacks(square, all_occupancy) & bishop_queen:
+            return True
+
+        pawn_attackers = self.black_pawn_attacks[square] if by_white else self.white_pawn_attacks[square]
+
+        if pawn_attackers & getattr(self, enemy_prefix + 'p'):
+            return True
+        
+        return False
+
+    def is_in_check(self, is_white):
+        king_bb = self.wk if is_white else self.bk
+        king_sq = get_set_bits(king_bb)[0]
+
+        return self.is_square_attacked(king_sq, not is_white)
+
+    def generate_legal_moves(self, is_white):
+        legal_moves = []
+        for move in self.generate_pseudo_legal_moves(is_white):
+            self.make_move(move)
+            if not self.is_in_check(is_white):
+                legal_moves.append(move)
+            self.unmake_move(move)
+        return legal_moves
     
     def print_bitboard(self, bitboard):
         """
