@@ -300,6 +300,42 @@ class Bitboard:
         }
         self.history.append(undo_info)
 
+        # Mark an en passant square after a double push
+        if move.is_double_push:
+            self.en_passant_square = (move.from_sq + move.to_sq) // 2
+        else:
+            self.en_passant_square = None
+
+        # Revoke castling rights when a piece moves
+        if move.piece == 'wk':
+            self.castling_rights['K'] = False
+            self.castling_rights['Q'] = False
+        elif move.piece == 'bk':
+            self.castling_rights['k'] = False
+            self.castling_rights['q'] = False
+        elif move.piece == 'wr':
+            if move.from_sq == 0:
+                self.castling_rights['Q'] = False
+            elif move.from_sq == 7:
+                self.castling_rights['K'] = False
+        elif move.piece == 'br':
+            if move.from_sq == 56:
+                self.castling_rights['q'] = False
+            elif move.from_sq == 63:
+                self.castling_rights['k'] = False
+
+        # Revoke castling rights when a rook gets captured
+        if move.captured_piece == 'wr':
+            if move.to_sq == 0:
+                self.castling_rights['Q'] = False
+            elif move.to_sq == 7:
+                self.castling_rights['K'] = False
+        elif move.captured_piece == 'br':
+            if move.to_sq == 56:
+                self.castling_rights['q'] = False
+            elif move.to_sq == 63:
+                self.castling_rights['k'] = False
+
         setattr(self, move.piece, getattr(self, move.piece) & ~(1 << move.from_sq))
 
         if move.captured_piece:
@@ -310,6 +346,20 @@ class Bitboard:
 
         dest_piece = move.promotion_piece if move.promotion_piece else move.piece
         setattr(self, dest_piece, getattr(self, dest_piece) |  (1 << move.to_sq))
+
+        if move.is_castling:
+            if move.to_sq == 6:      # white kingside (e1->g1)
+                self.wr &= ~(1 << 7)
+                self.wr |= (1 << 5)
+            elif move.to_sq == 2:    # white queenside (e1->c1)
+                self.wr &= ~(1 << 0)
+                self.wr |= (1 << 3)
+            elif move.to_sq == 62:   # black kingside (e8->g8)
+                self.br &= ~(1 << 63)
+                self.br |= (1 << 61)
+            elif move.to_sq == 58:   # black queenside (e8->c8)
+                self.br &= ~(1 << 56)
+                self.br |= (1 << 59)
 
         self.side_to_move = not self.side_to_move
 
@@ -326,6 +376,20 @@ class Bitboard:
             if move.is_en_passant:
                 capture_sq = move.to_sq - 8 if move.piece[0] == 'w' else move.to_sq + 8
             setattr(self, move.captured_piece, getattr(self, move.captured_piece) | (1 << capture_sq))
+
+        if move.is_castling:
+            if move.to_sq == 6:
+                self.wr &= ~(1 << 5)
+                self.wr |= (1 << 7)
+            elif move.to_sq == 2:
+                self.wr &= ~(1 << 3)
+                self.wr |= (1 << 0)
+            elif move.to_sq == 62:
+                self.br &= ~(1 << 61)
+                self.br |= (1 << 63)
+            elif move.to_sq == 58:
+                self.br &= ~(1 << 59)
+                self.br |= (1 << 56)
 
         undo_info = self.history.pop()
         self.en_passant_square = undo_info['en_passant_square']
