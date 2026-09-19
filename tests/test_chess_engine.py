@@ -132,10 +132,7 @@ def test_en_passant_round_trip(board):
 
 
 def test_generator_round_trip_from_start_position(board):
-    """
-    Every pseudo-legal move for white from the starting position must be
-    perfectly reversible - this exercises the generator and make/unmake together.
-    """
+    # Every pseudo-legal move from the start position must be reversible
     original = snapshot(board)
     moves = board.generate_pseudo_legal_moves(is_white=True)
     assert len(moves) > 0

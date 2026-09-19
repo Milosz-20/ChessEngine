@@ -32,16 +32,7 @@ WEST = -1
 NORTH_WEST = 7
 
 def _init_king_moves():
-    """
-    Initialize lookup table for king moves from all 64 squares.
-
-    King can move one square in any direction (8 possible moves).
-    Moves are restricted by board edges and file boundaries.
-
-    Returns:
-        list: List of 64 integers (bitboards), where each represents
-              all possible king moves from that square index.
-    """
+    # Lookup table of king moves from all 64 squares
     moves_list = [0] * 64
 
     for square in range(64):
@@ -82,17 +73,7 @@ def _init_king_moves():
     return moves_list
 
 def _init_knight_moves():
-    """
-    Initialize lookup table for knight moves from all 64 squares.
-
-    Knight moves in an L-shape: 2 squares in one direction and 1 square
-    perpendicular (8 possible moves). Moves are restricted by board edges
-    and file boundaries.
-
-    Returns:
-        list: List of 64 integers (bitboards), where each represents
-              all possible knight moves from that square index.
-    """
+    # Lookup table of knight moves from all 64 squares
     moves_list = [0] * 64
 
     for square in range(64):
@@ -144,11 +125,7 @@ def _init_knight_moves():
     return moves_list
 
 def _init_white_pawn_attacks():
-    """
-    Initialize lookup table for white pawn attacks (diagonal captures only)
-    from all 64 squares.
-    """
-    
+    # Lookup table of white pawn diagonal captures from all 64 squares
     moves_list = [0] * 64
 
     for square in range(64):
@@ -168,11 +145,7 @@ def _init_white_pawn_attacks():
     return moves_list
 
 def _init_black_pawn_attacks(): 
-    """
-    Initialize lookup table for black pawn attacks (diagonal captures only)
-    from all 64 squares.
-    """
-    
+    # Lookup table of black pawn diagonal captures from all 64 squares
     moves_list = [0] * 64
 
     for square in range(64):
@@ -192,18 +165,7 @@ def _init_black_pawn_attacks():
     return moves_list
 
 def count_bits(bitboard):
-    """
-    Counts the number of set bits (1s) in a bitboard.
-
-    Uses Brian Kernighan's algorithm to clear the least significant bit
-    in each iteration, which is efficient for sparse bitboards.
-
-    Args:
-        bitboard: The integer (bitboard) to count bits in.
-
-    Returns:
-        int: The number of set bits.
-    """
+    # Count set bits with Kernighan's algorithm (clear the lowest set bit each iteration)
     count = 0
     while bitboard:
         count += 1
@@ -211,28 +173,11 @@ def count_bits(bitboard):
     return count
 
 def set_bit(bitboard, bit):
-    """
-    Sets the bit at the given index to 1 in the bitboard.
-
-    How it works:
-    1. (1 << bit) creates a mask with a single 1 at the specified index.
-       e.g., if bit=2: 1 << 2 = 100 (binary)
-    2. The bitwise OR (|) operator combines the bitboard with this mask.
-       This ensures the bit at 'index' becomes 1, leaving others unchanged.
-
-    Args:
-        bitboard: The bitboard integer.
-        bit: The index of the bit to set (0-63).
-
-    Returns:
-        int: The new bitboard with the bit set.
-    """
+    # Set the bit at the given index (0-63) to 1
     return bitboard | (1 << bit)
 
 def get_set_bits(bitboard):
-    """
-    Zwraca listę indeksów (0-63) wszystkich ustawionych bitów w bitboardzie.
-    """
+    # Return indices (0-63) of all set bits in the bitboard
     indices = []
     while bitboard:
         lsb = bitboard & -bitboard
@@ -242,7 +187,7 @@ def get_set_bits(bitboard):
     return indices
 
 def generate_occupancy_variations(mask):
-    """Generates all possible sub-masks (occupancies) for a given mask."""
+    # Generate all possible sub-masks (occupancies) of a given mask
     variations = []
     subset = 0
     while True:
@@ -252,20 +197,7 @@ def generate_occupancy_variations(mask):
     return variations
 
 def get_rook_mask(square):
-    """
-    Generates a mask of relevant occupancy bits for a rook on the given square.
-
-    This mask includes all squares that could potentially block a rook's movement,
-    excluding the edges of the board. This is used for generating magic bitboards,
-    where the occupancy of the edge squares does not affect the set of attacked squares
-    behind them (since the piece stops at the edge anyway).
-
-    Args:
-        square: The square index (0-63) of the rook.
-
-    Returns:
-        int: Bitboard mask of relevant occupancy bits.
-    """
+    # Relevant occupancy mask for a rook: squares that can block it, edges excluded
     mask = 0
     rank, file = divmod(square, 8)
 
@@ -284,19 +216,7 @@ def get_rook_mask(square):
     return mask
 
 def get_bishop_mask(square):
-    """
-    Generates a mask of relevant occupancy bits for a bishop on the given square.
-
-    Similar to get_rook_mask, this includes squares along the diagonals that could
-    block the bishop, excluding the board edges. This reduced mask is used for
-    magic bitboard table lookups to keep the table size manageable.
-
-    Args:
-        square: The square index (0-63) of the bishop.
-
-    Returns:
-        int: Bitboard mask of relevant occupancy bits.
-    """
+    # Relevant occupancy mask for a bishop: squares that can block it, edges excluded
     mask = 0
     rank, file = divmod(square, 8)
 
