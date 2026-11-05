@@ -15,6 +15,7 @@ def snapshot(board):
         'castling_rights': dict(board.castling_rights),
         'en_passant_square': board.en_passant_square,
         'halfmove_clock': board.halfmove_clock,
+        'fullmove_number': board.fullmove_number,
     }
 
 
@@ -141,3 +142,27 @@ def test_generator_round_trip_from_start_position(board):
         board.make_move(move)
         board.unmake_move(move)
         assert snapshot(board) == original, f"round trip failed for generated move {move}"
+
+
+def test_halfmove_clock_counts_quiet_moves_and_resets_on_pawn_move(board):
+    board.make_move(Move(from_sq=6, to_sq=21, piece='wn'))    # Ng1-f3
+    assert board.halfmove_clock == 1
+    board.make_move(Move(from_sq=62, to_sq=45, piece='bn'))   # Ng8-f6
+    assert board.halfmove_clock == 2
+    board.make_move(Move(from_sq=12, to_sq=28, piece='wp', is_double_push=True))  # e2-e4
+    assert board.halfmove_clock == 0
+
+
+def test_halfmove_clock_resets_on_capture(board):
+    board.load_fen("4k3/8/8/3q4/8/8/8/3RK3 w - - 7 20")
+    board.make_move(Move(from_sq=3, to_sq=35, piece='wr', captured_piece='bq'))  # Rd1xd5
+    assert board.halfmove_clock == 0
+
+
+def test_fullmove_number_increments_after_black_moves(board):
+    board.make_move(Move(from_sq=12, to_sq=28, piece='wp', is_double_push=True))  # e2-e4
+    assert board.fullmove_number == 1
+    board.make_move(Move(from_sq=52, to_sq=36, piece='bp', is_double_push=True))  # e7-e5
+    assert board.fullmove_number == 2
+    board.unmake_move(Move(from_sq=52, to_sq=36, piece='bp', is_double_push=True))
+    assert board.fullmove_number == 1
