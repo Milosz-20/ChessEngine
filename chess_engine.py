@@ -92,6 +92,44 @@ class Bitboard:
 
         self.magics = MagicManager()
 
+    # Loads a position from a FEN string, replacing the current board state.
+    def load_fen(self, fen):
+        parts = fen.split()
+
+        for attr in ('wp', 'wn', 'wb', 'wr', 'wq', 'wk',
+                     'bp', 'bn', 'bb', 'br', 'bq', 'bk'):
+            setattr(self, attr, 0)
+
+        rank = 7
+        file = 0
+        for char in parts[0]:
+            if char == '/':
+                rank -= 1
+                file = 0
+            elif char.isdigit():
+                file += int(char)
+            else:
+                attr = ('w' if char.isupper() else 'b') + char.lower()
+                square = rank * 8 + file
+                setattr(self, attr, getattr(self, attr) | (1 << square))
+                file += 1
+
+        self.side_to_move = parts[1] == 'w'
+
+        self.castling_rights = {right: (right in parts[2]) for right in 'KQkq'}
+
+        ep = parts[3]
+        if ep == '-':
+            self.en_passant_square = None
+        else:
+            ep_file = ord(ep[0]) - ord('a')
+            ep_rank = int(ep[1]) - 1
+            self.en_passant_square = ep_rank * 8 + ep_file
+
+        self.halfmove_clock = int(parts[4]) if len(parts) > 4 else 0
+        self.fullmove_number = int(parts[5]) if len(parts) > 5 else 1
+        self.history = []
+
     # Returns a bitboard of all pieces for a given color.
     def get_occupancy(self, is_white):
         if is_white:
@@ -228,16 +266,70 @@ class Bitboard:
                         moves.append(Move(from_sq, to_sq, attr, captured_piece = captured,
                                           is_double_push = is_double))
                     else:
-                        moves.append(Move(from_sq, to_sq, attr, captured_piece = captured)) 
+                        moves.append(Move(from_sq, to_sq, attr, captured_piece = captured))
+
+        if self.en_passant_square is not None:
+            ep_sq = self.en_passant_square
+            own_pawns = self.wp if is_white else self.bp
+            attackers = self.black_pawn_attacks if is_white else self.white_pawn_attacks
+            enemy_pawn = 'bp' if is_white else 'wp'
+
+            for from_sq in get_set_bits(attackers[ep_sq] & own_pawns):
+                moves.append(Move(from_sq, ep_sq, prefix + 'p',
+                                  captured_piece = enemy_pawn, is_en_passant = True))
+
+        moves.extend(self.generate_castling_moves(is_white))
+
         return moves
 
+    def generate_castling_moves(self, is_white):
+        moves = []
+        base = 0 if is_white else 56
+        king_sq = base + 4
+        king_piece = 'wk' if is_white else 'bk'
+        kingside_right = 'K' if is_white else 'k'
+        queenside_right = 'Q' if is_white else 'q'
+        enemy = not is_white
+
+        occupied = self.get_occupancy(True) | self.get_occupancy(False)
+
+        if self.is_square_attacked(king_sq, enemy):
+            return moves
+
+        if self.castling_rights[kingside_right]:
+            empty_mask = (1 << (base + 5)) | (1 << (base + 6))
+            if not (occupied & empty_mask):
+                if not self.is_square_attacked(base + 5, enemy) and \
+                   not self.is_square_attacked(base + 6, enemy):
+                    moves.append(Move(king_sq, base + 6, king_piece, is_castling = True))
+
+        if self.castling_rights[queenside_right]:
+            empty_mask = (1 << (base + 1)) | (1 << (base + 2)) | (1 << (base + 3))
+            if not (occupied & empty_mask):
+                if not self.is_square_attacked(base + 3, enemy) and \
+                   not self.is_square_attacked(base + 2, enemy):
+                    moves.append(Move(king_sq, base + 2, king_piece, is_castling = True))
+
+        return moves
+        
     def make_move(self, move):
         undo_info = {
             'en_passant_square': self.en_passant_square,
             'castling_rights': dict(self.castling_rights),
-            'halfmove_clock': self.halfmove_clock
+            'halfmove_clock': self.halfmove_clock,
+            'fullmove_number': self.fullmove_number
         }
         self.history.append(undo_info)
+
+        # Fifty-move rule counter: reset on pawn moves and captures
+        if move.piece[1] == 'p' or move.captured_piece:
+            self.halfmove_clock = 0
+        else:
+            self.halfmove_clock += 1
+
+        # Full move number goes up after Black's move
+        if move.piece[0] == 'b':
+            self.fullmove_number += 1
 
         # Mark an en passant square after a double push
         if move.is_double_push:
@@ -334,6 +426,7 @@ class Bitboard:
         self.en_passant_square = undo_info['en_passant_square']
         self.castling_rights = undo_info['castling_rights']
         self.halfmove_clock = undo_info['halfmove_clock']
+        self.fullmove_number = undo_info['fullmove_number']
         
     def is_square_attacked(self, square, by_white):
         enemy_prefix = 'w' if by_white else 'b'
