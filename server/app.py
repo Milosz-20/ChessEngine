@@ -141,6 +141,17 @@ def login(body: Credentials, response: Response):
     return {"username": user["username"]}
 
 
+@app.post("/api/guest")
+def guest(request: Request, response: Response):
+    """Play without an account: create a guest user and log the browser into it."""
+    user = auth.user_from_token(request.cookies.get(auth.SESSION_COOKIE))
+    if user is not None:
+        return {"username": user["username"], "guest": user["guest"]}
+    guest_user = auth.create_guest()
+    set_session_cookie(response, auth.create_session(guest_user))
+    return {"username": guest_user["username"], "guest": True}
+
+
 @app.post("/api/logout")
 def logout(request: Request, response: Response):
     auth.delete_session(request.cookies.get(auth.SESSION_COOKIE))
@@ -150,7 +161,7 @@ def logout(request: Request, response: Response):
 
 @app.get("/api/me")
 def me(user=Depends(current_user)):
-    return {"username": user["username"]}
+    return {"username": user["username"], "guest": user["guest"]}
 
 
 # ---------- lobby ----------

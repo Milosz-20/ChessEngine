@@ -3,7 +3,7 @@ import { api, requireUser, renderTopbar, TERMINATION, resultText, outcomeFor, ti
 import { Board } from "./board.js";
 
 const gameId = location.pathname.split("/").pop();
-const user = await requireUser();
+const user = await requireUser({ guestPrompt: true });
 renderTopbar(user, "play");
 
 const board = new Board(document.getElementById("board"), {

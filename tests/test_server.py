@@ -80,7 +80,7 @@ def recv_state(ws):
 
 def test_register_login_logout(server):
     user = new_user(server)
-    assert user.get("/api/me").json() == {"username": user.name}
+    assert user.get("/api/me").json() == {"username": user.name, "guest": False}
     user.post("/api/logout")
     assert user.get("/api/me").status_code == 401
 
@@ -293,3 +293,32 @@ def test_game_survives_restart(server):
         s = recv_state(ws)
         assert s["moves"] == ["d2d4"] and "d7d5" in s["legal"]
     assert db_module.get_db().games.find_one({"_id": gid})["moves"] == ["d2d4"]
+
+
+def test_guest_can_join_and_play(server):
+    creator = new_user(server)
+    gid = creator.post("/api/games", json={"minutes": 5, "increment": 0, "color": "white"}).json()["id"]
+
+    guest = Player(server, register=False)
+    assert guest.get("/api/me").status_code == 401
+    r = guest.post("/api/guest")
+    assert r.status_code == 200 and r.json()["guest"] is True
+    guest.token = r.cookies.get("session")
+    me = guest.get("/api/me").json()
+    assert me["guest"] is True and me["username"].startswith("Gosc-")
+    # calling it again keeps the same guest instead of creating a new one
+    assert guest.post("/api/guest").json()["username"] == me["username"]
+
+    assert guest.post(f"/api/games/{gid}/join").status_code == 200
+    with creator.ws(gid) as ws_w, guest.ws(gid) as ws_b:
+        recv_state(ws_w)
+        assert recv_state(ws_b)["you"] == "black"
+        ws_w.send_json({"type": "move", "uci": "e2e4"})
+        recv_state(ws_w), recv_state(ws_b)
+        ws_b.send_json({"type": "move", "uci": "e7e5"})
+        assert recv_state(ws_b)["moves"] == ["e2e4", "e7e5"]
+
+    # nobody can log into a guest account, and the name prefix is reserved
+    anon = Player(server, register=False)
+    assert anon.post("/api/login", json={"username": me["username"], "password": ""}).status_code == 401
+    assert anon.post("/api/register", json={"username": "Gosc-1", "password": "sekret123"}).status_code == 400

@@ -18,17 +18,47 @@ export async function api(path, { method = "GET", body } = {}) {
   return data;
 }
 
-// Returns the logged-in user or sends the visitor to the login page.
-export async function requireUser() {
+// Returns the logged-in user. Visitors without an account are sent to the login page, or -
+// with guestPrompt - offered to play straight away as a guest.
+export async function requireUser({ guestPrompt = false } = {}) {
   try {
     return await api("/api/me");
   } catch (e) {
-    if (e.status === 401) {
-      location.href = "/login?next=" + encodeURIComponent(location.pathname);
-      return new Promise(() => {}); // never resolves, page is leaving
-    }
-    throw e;
+    if (e.status !== 401) throw e;
+    if (guestPrompt) return askGuest();
+    location.href = "/login?next=" + encodeURIComponent(location.pathname);
+    return new Promise(() => {}); // never resolves, page is leaving
   }
+}
+
+function askGuest() {
+  const main = document.querySelector("main");
+  const content = [...main.children];
+  content.forEach(el => el.style.display = "none");  // [hidden] loses to display: grid
+  const next = encodeURIComponent(location.pathname);
+  const box = document.createElement("div");
+  box.className = "auth";
+  box.innerHTML = `
+    <div class="brand-big">${logoSvg()}<h1>Zaproszenie do partii</h1>
+      <div class="muted">Zagraj od razu jako gość albo zaloguj się na swoje konto.</div></div>
+    <button class="primary block" id="guest-play">Graj jako gość</button>
+    <div class="error-text" id="guest-error"></div>
+    <div class="guest-alt">Masz konto? <a href="/login?next=${next}">Zaloguj się</a></div>`;
+  main.prepend(box);
+  return new Promise(resolve => {
+    box.querySelector("#guest-play").onclick = async ev => {
+      ev.target.disabled = true;
+      try {
+        const user = await api("/api/guest", { method: "POST" });
+        box.remove();
+        content.forEach(el => el.style.display = "");
+        resolve(user);
+      } catch (err) {
+        box.querySelector("#guest-error").textContent = err.message;
+        ev.target.disabled = false;
+      }
+    };
+  });
 }
 
 export function renderTopbar(user, active) {
@@ -44,8 +74,11 @@ export function renderTopbar(user, active) {
     <div class="user"></div>`;
   if (user) {
     const u = bar.querySelector(".user");
-    u.innerHTML = `<span class="who"><b></b></span><button class="link" id="logout">Wyloguj</button>`;
+    u.innerHTML = user.guest
+      ? `<span class="who"><b></b> <span class="muted">· gość</span></span><a href="/login">Załóż konto</a>`
+      : `<span class="who"><b></b></span><button class="link" id="logout">Wyloguj</button>`;
     u.querySelector("b").textContent = user.username;
+    if (user.guest) { document.body.prepend(bar); return; }
     u.querySelector("#logout").onclick = async () => {
       await api("/api/logout", { method: "POST" });
       location.href = "/login";

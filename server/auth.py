@@ -31,6 +31,8 @@ def hash_password(password):
 
 
 def verify_password(password, stored):
+    if not stored:
+        return False  # guest accounts have no password
     try:
         _, n, r, p, salt, digest = stored.split("$")
         candidate = hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt),
@@ -47,6 +49,8 @@ def _token_hash(token):
 def validate_new_account(username, password):
     if not isinstance(username, str) or not USERNAME_RE.match(username):
         return "Nazwa użytkownika: 3–20 znaków, litery, cyfry, _ lub -."
+    if username.lower().startswith("gosc-"):
+        return "Nazwy zaczynające się od „Gosc-” są zarezerwowane dla gości."
     if not isinstance(password, str) or len(password) < MIN_PASSWORD:
         return f"Hasło musi mieć co najmniej {MIN_PASSWORD} znaków."
     if len(password) > 128:
@@ -62,6 +66,21 @@ def create_user(username, password):
     except DuplicateKeyError:
         raise UsernameTaken()
     return user
+
+
+def create_guest():
+    """A throwaway account for someone who opened a game link without logging in.
+    It has no password, so nobody can log into it later - the session cookie is the key."""
+    for _ in range(20):
+        username = f"Gosc-{secrets.randbelow(90000) + 10000}"
+        user = {"username": username, "username_lower": username.lower(), "password_hash": "",
+                "guest": True, "created_at": utcnow()}
+        try:
+            user["_id"] = get_db().users.insert_one(user).inserted_id
+            return user
+        except DuplicateKeyError:
+            continue
+    raise RuntimeError("Could not pick a free guest name")
 
 
 def find_user(username):
@@ -96,7 +115,7 @@ def user_from_token(token):
     user = get_user(session["user_id"])
     if user is None:
         return None
-    return {"id": str(user["_id"]), "username": user["username"]}
+    return {"id": str(user["_id"]), "username": user["username"], "guest": bool(user.get("guest"))}
 
 
 def delete_session(token):

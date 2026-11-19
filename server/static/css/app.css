@@ -300,3 +300,6 @@ h1.title { margin: 0 0 26px; font-size: 36px; line-height: 1.1; font-weight: 600
   .list-row:not(.history-row) .actions { grid-row: 1 / span 2; grid-column: 2; }
 }
 .banner .row button { white-space: nowrap; padding: 9px 12px; }
+
+.guest-alt { text-align: center; color: var(--muted); font-size: 14px; margin-top: 18px; }
+.guest-alt .link { padding: 0; font-size: 14px; }

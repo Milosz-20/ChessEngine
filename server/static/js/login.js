@@ -29,6 +29,15 @@ document.querySelectorAll("#tabs button").forEach(btn => {
   };
 });
 
+document.getElementById("guest").onclick = async () => {
+  try {
+    await api("/api/guest", { method: "POST" });
+    location.replace(nextUrl());
+  } catch (err) {
+    error.textContent = err.message;
+  }
+};
+
 form.onsubmit = async e => {
   e.preventDefault();
   error.textContent = "";
