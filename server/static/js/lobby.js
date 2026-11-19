@@ -1,4 +1,4 @@
-import { api, requireUser, renderTopbar, timeControlText, timeControlName, colorDot, escapeHtml } from "./common.js";
+import { api, requireUser, renderTopbar, timeControlText, timeControlName, colorDot, escapeHtml, toast } from "./common.js";
 
 const TIME_CONTROLS = [
   [1, 0], [2, 1], [3, 0],
@@ -49,7 +49,7 @@ document.getElementById("create").onclick = async e => {
   }
 };
 
-const COLOR_LABEL = { white: "białe", black: "czarne", random: "losowo" };
+const COLOR_LABEL = { white: "gra białymi", black: "gra czarnymi", random: "kolor losowy" };
 
 async function refresh() {
   try {
@@ -62,51 +62,49 @@ async function refresh() {
 }
 
 function renderOpen(games) {
-  const tbody = document.getElementById("open-games");
+  const box = document.getElementById("open-games");
   if (!games.length) {
-    tbody.innerHTML = `<tr><td colspan="4" class="empty">Brak otwartych partii — utwórz własną!</td></tr>`;
+    box.innerHTML = `<div class="list-empty">Nikt teraz nie czeka na grę. Utwórz własną partię.</div>`;
     return;
   }
-  tbody.innerHTML = games.map(g => `
-    <tr>
-      <td><b>${escapeHtml(g.creator)}</b>${g.mine ? ' <span class="muted">(Ty)</span>' : ""}</td>
-      <td>${timeControlText(g.minutes, g.increment)} <span class="muted">${timeControlName(g.minutes, g.increment)}</span></td>
-      <td>${colorDot(g.creatorColor)}${COLOR_LABEL[g.creatorColor]}</td>
-      <td class="actions">
+  box.innerHTML = games.map(g => `
+    <div class="list-row">
+      <span class="name">${escapeHtml(g.creator)}${g.mine ? ' <span class="muted">· Ty</span>' : ""}</span>
+      <span class="mono muted">${timeControlText(g.minutes, g.increment)} <span style="font-family:var(--font)">${timeControlName(g.minutes, g.increment).toLowerCase()}</span></span>
+      <span class="muted">${colorDot(g.creatorColor)}${COLOR_LABEL[g.creatorColor]}</span>
+      <span class="actions">
         ${g.mine
-          ? `<a href="/game/${g.id}"><button class="small">Otwórz</button></a>
-             <button class="small danger" data-cancel="${g.id}">Anuluj</button>`
-          : `<button class="small primary" data-join="${g.id}">Dołącz</button>`}
-      </td>
-    </tr>`).join("");
-  tbody.querySelectorAll("[data-join]").forEach(b => b.onclick = async () => {
+          ? `<a href="/game/${g.id}">Otwórz</a><button class="link" data-cancel="${g.id}">Anuluj</button>`
+          : `<button class="link accent" data-join="${g.id}">Dołącz</button>`}
+      </span>
+    </div>`).join("");
+  box.querySelectorAll("[data-join]").forEach(b => b.onclick = async () => {
     b.disabled = true;
     try {
       await api(`/api/games/${b.dataset.join}/join`, { method: "POST" });
       location.href = `/game/${b.dataset.join}`;
     } catch (e) {
-      alert(e.message);
+      toast(e.message);
       refresh();
     }
   });
-  tbody.querySelectorAll("[data-cancel]").forEach(b => b.onclick = async () => {
+  box.querySelectorAll("[data-cancel]").forEach(b => b.onclick = async () => {
     b.disabled = true;
-    try { await api(`/api/games/${b.dataset.cancel}/cancel`, { method: "POST" }); } catch (e) { alert(e.message); }
+    try { await api(`/api/games/${b.dataset.cancel}/cancel`, { method: "POST" }); } catch (e) { toast(e.message); }
     refresh();
   });
 }
 
 function renderActive(games) {
-  const card = document.getElementById("active-card");
-  card.hidden = !games.length;
+  document.getElementById("active-section").hidden = !games.length;
   document.getElementById("active-games").innerHTML = games.map(g => {
     const opponent = g.you === "white" ? g.black : g.white;
-    return `<tr>
-      <td>${colorDot(g.you)}vs <b>${escapeHtml(opponent)}</b></td>
-      <td>${timeControlText(g.minutes, g.increment)}</td>
-      <td class="muted">${g.moves} półruchów</td>
-      <td class="actions"><a href="/game/${g.id}"><button class="small primary">Wróć do gry</button></a></td>
-    </tr>`;
+    return `<div class="list-row">
+      <span class="name">${colorDot(g.you)}${escapeHtml(opponent)}</span>
+      <span class="mono muted">${timeControlText(g.minutes, g.increment)}</span>
+      <span class="muted">ruch ${Math.floor(g.moves / 2) + 1}</span>
+      <span class="actions"><a href="/game/${g.id}">Wróć do gry</a></span>
+    </div>`;
   }).join("");
 }
 

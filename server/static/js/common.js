@@ -1,4 +1,5 @@
 // Shared helpers for every page: API calls, the top bar, labels, small UI bits.
+import { logoSvg } from "./pieces.js";
 
 export async function api(path, { method = "GET", body } = {}) {
   const res = await fetch(path, {
@@ -34,7 +35,7 @@ export function renderTopbar(user, active) {
   const bar = document.createElement("header");
   bar.className = "topbar";
   bar.innerHTML = `
-    <a class="brand" href="/"><span class="logo">♞</span>Szachy</a>
+    <a class="brand" href="/">${logoSvg()}Szachy</a>
     <nav>
       <a href="/" class="${active === "play" ? "active" : ""}">Graj</a>
       <a href="/history" class="${active === "history" ? "active" : ""}">Historia</a>
@@ -43,7 +44,7 @@ export function renderTopbar(user, active) {
     <div class="user"></div>`;
   if (user) {
     const u = bar.querySelector(".user");
-    u.innerHTML = `<span>Zalogowano: <b></b></span><button class="small" id="logout">Wyloguj</button>`;
+    u.innerHTML = `<span class="who"><b></b></span><button class="link" id="logout">Wyloguj</button>`;
     u.querySelector("b").textContent = user.username;
     u.querySelector("#logout").onclick = async () => {
       await api("/api/logout", { method: "POST" });
@@ -62,7 +63,7 @@ export const TERMINATION = {
   repetition: "trzykrotne powtórzenie pozycji",
   fifty_moves: "zasada 50 ruchów",
   insufficient_material: "niewystarczający materiał",
-  agreement: "remis za porozumieniem",
+  agreement: "za porozumieniem",
 };
 
 export function resultText(result) {
@@ -91,8 +92,16 @@ export function timeControlName(minutes, increment) {
   return "Klasyczne";
 }
 
+// Polish plural: plural(5, "partia", "partie", "partii")
+export function plural(n, one, few, many) {
+  if (n === 1) return one;
+  const d = n % 10, dd = n % 100;
+  if (d >= 2 && d <= 4 && !(dd >= 12 && dd <= 14)) return few;
+  return many;
+}
+
 export function colorDot(color) {
-  return `<span class="color-dot ${color}"></span>`;
+  return `<span class="dot-color ${color}"></span>`;
 }
 
 export function formatDate(iso) {

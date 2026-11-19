@@ -1,66 +1,79 @@
-# Chess Engine
+# Chess Engine + Szachy online
 
-A chess engine written from scratch in Python, following the [Chess Programming Wiki](https://www.chessprogramming.org/) as the primary reference. The project's goal is to build a full engine — board representation, move generation, search, evaluation and UCI communication — one topic at a time, understanding the underlying technique at each step rather than using an existing chess library.
+A chess engine written from scratch in Python (following the [Chess Programming Wiki](https://www.chessprogramming.org/)), and a website built on top of it where two people play chess against each other in the browser.
 
-The long-term goal is a playable website: once the engine can generate legal moves and evaluate positions, it will be exposed behind a web interface so a person can play a game against it directly in the browser.
+The engine is the rules authority of the website: every move a player makes is validated by the bitboard move generator on the server, which also detects checkmate, stalemate and every draw rule.
 
-## Project Scope
+## Features
 
-The engine is being built in the following stages. Completed stages are implemented and tested; later stages are planned but not yet started.
+**Engine**
+- Bitboard board representation, precomputed king/knight/pawn tables, magic bitboards for sliding pieces
+- Full legal move generation incl. castling, en passant and promotion, validated with perft against the CPW reference positions
+- FEN import/export, UCI move parsing, SAN notation (with disambiguation, check and mate marks), PGN export
+- Game end detection: checkmate, stalemate, threefold repetition, fifty-move rule, insufficient material
 
-| Stage | Status |
+**Website**
+- Accounts (register / log in), passwords hashed with scrypt, cookie sessions
+- Lobby: create a game with a time control (1+0 up to 60+30) and colour, share the link or join open games
+- Live games over WebSockets, server-side clocks with increment, flag detection (incl. the "timeout vs insufficient material" draw)
+- Drag-and-drop or click-click moves, legal move highlighting, promotion picker, last move and check highlighting
+- Resign, draw offer / accept / decline, abort before the first moves, automatic abort if White never moves
+- Move list with position browsing (arrow keys), spectator mode, game history with results and PGN download
+- Responsive layout (phone and desktop), custom SVG pieces
+
+## Project layout
+
+| Path | What it is |
 |---|---|
-| Bitboard board representation | Done |
-| King and Knight move generation (precomputed lookup tables) | Done |
-| Rook and Bishop attacks with blockers (on-the-fly calculation) | Done |
-| Magic Bitboards for Rook/Bishop (O(1) sliding attack lookup) | Done |
-| Pawn move generation (single/double push, diagonal captures) | Done |
-| Queen move generation (combined Rook + Bishop attacks) | Done |
-| Move representation (`Move` object: captures, promotion, castling, en passant flags) | In progress |
-| Full pseudo-legal move generator (all pieces, one position) | Planned |
-| Make/unmake move (apply and reverse a move on the board state) | Planned |
-| Perft testing (move-count correctness validation) | Planned |
-| Legal move filtering (check detection, pins, castling rights) | Planned |
-| FEN parsing/serialization (load and export arbitrary positions) | Planned |
-| Search (minimax/negamax with alpha-beta pruning) | Planned |
-| Evaluation function (material, piece-square tables) | Planned |
-| UCI protocol (communication with chess GUIs) | Planned |
-| Web interface to play against the engine in a browser | Planned (long-term goal) |
+| `chess_engine.py` | `Bitboard` class: board state, move generation, make/unmake, check detection, FEN loading |
+| `helpers.py` | Bitboard utilities and precomputed move tables |
+| `move.py` | `Move` object |
+| `game.py` | A whole game on top of the engine: UCI parsing, SAN, FEN export, game end rules, PGN |
+| `perft.py` | Perft node counter used to validate move generation |
+| `server/app.py` | FastAPI app: pages, JSON API (accounts, lobby, history, PGN) and the game WebSocket |
+| `server/live.py` | Live game logic: clocks, moves, resign/draw/abort, broadcasting state to players |
+| `server/auth.py` | Password hashing and sessions |
+| `server/db.py` | MongoDB connection and indexes |
+| `server/static/` | Frontend (plain HTML/CSS/JS modules, no build step) |
+| `generate_magics/` | C++ tool that generates `magic_numbers.json` |
+| `tests/` | Engine, perft, game rules and end-to-end server tests |
 
-Pawn promotion and en passant are intentionally deferred until the `Move` representation exists, since both require move flags rather than a plain target-square bitboard.
-
-## Architecture
-
-- **`chess_engine.py`** — the `Bitboard` class (board state as twelve 64-bit integers, one per piece type per color) and per-piece move generation methods (`get_king_moves`, `get_knight_moves`, `get_pawn_moves`, `get_queen_moves`, ...). Also contains `MagicManager`, which loads precomputed magic numbers and builds the Rook/Bishop attack lookup tables.
-- **`helpers.py`** — bitboard utilities (bit counting, occupancy variation generation), file/direction constants, precomputed move-table generators for King/Knight/Pawn, and the on-the-fly slow-path attack functions used both directly and to validate the magic bitboard tables.
-- **`generate_magics/`** — a C++ program that searches for valid magic numbers for every square and writes them to `magic_numbers.json`, which the Python engine loads at startup.
-- **`main.py`** — a demonstration script exercising the move generation and magic bitboard lookups implemented so far.
-
-### Why Bitboards and Magic Bitboards?
-
-A bitboard represents the positions of one type of piece as a single 64-bit integer, one bit per square. This makes common chess operations (union of pieces, intersection with attack patterns, counting attackers) simple, fast bitwise operations instead of loops over an 8x8 array.
-
-Sliding pieces (Rook, Bishop, Queen) are harder: their attacks depend on which squares are occupied by blockers. Magic Bitboards solve this by using a precomputed "magic" multiplier per square that hashes the relevant occupancy bits into a small, collision-free index into a precomputed attack table — turning a loop-based calculation into a single array lookup.
-
-## Getting Started
-
-Run the demonstration script:
+## Running locally
 
 ```bash
-python main.py
+python -m venv .venv
+.venv/Scripts/pip install -r requirements-dev.txt     # on Linux/macOS: .venv/bin/pip
+.venv/Scripts/python -m uvicorn server.app:app --reload
 ```
 
-This loads `magic_numbers.json` (generated by `generate_magics/generate_magics.exe`) and prints move bitboards and magic-lookup verification for the starting position.
+Open http://localhost:8000. Without `MONGODB_URI` the server uses an in-memory database (data disappears on restart), so nothing else needs to be installed. To test two players on one computer, open the second player in a private window or at http://127.0.0.1:8000 (cookies are per host).
 
-If `magic_numbers.json` is missing or needs regenerating, rebuild it with the C++ generator in `generate_magics/`.
+Run the tests:
 
-## Planned Web Interface
+```bash
+.venv/Scripts/python -m pytest
+```
 
-Once the engine has legal move generation, search and evaluation working, it will be exposed through a simple website so a person can play a game against it in the browser. Rough plan (subject to change as the engine takes shape):
+## Configuration
 
-- A minimal board UI where the user clicks/drags pieces to make moves.
-- A backend (likely a small Python web server, e.g. Flask/FastAPI) that wraps the engine and talks to it via UCI or a direct function call.
-- The engine picks its reply move using the search/evaluation implemented at that point, with a simple difficulty or time-limit setting.
-- User accounts with login/registration, so games and stats can be tied to a person.
+| Variable | Meaning |
+|---|---|
+| `MONGODB_URI` | MongoDB connection string. Unset = in-memory database for development |
+| `MONGODB_DB` | Database name (default `szachy`) |
+| `COOKIE_SECURE` | `1` in production (HTTPS) so the session cookie is only sent over HTTPS |
 
-This is the final stage of the project and will be fleshed out once the engine itself is complete.
+## Deployment (free)
+
+The app needs a long-running process for WebSockets, so serverless hosts such as Vercel don't fit. The free setup:
+
+1. **Database: MongoDB Atlas.** Create a free M0 cluster at https://www.mongodb.com/cloud/atlas, add a database user, allow access from anywhere (`0.0.0.0/0`, Render has no fixed IP on the free plan) and copy the connection string (`mongodb+srv://...`).
+2. **App: Render.** Push this repository to GitHub, then in Render choose *New → Blueprint* and pick the repository. `render.yaml` sets everything up; paste the Atlas connection string as `MONGODB_URI` when asked.
+3. Open the `https://<name>.onrender.com` address Render gives you.
+
+Notes:
+- Free Render services sleep after ~15 minutes without traffic; the first visit afterwards takes about 30–60 seconds.
+- Live games are held in memory, so keep exactly one instance. Game state is also saved to MongoDB after every move, so a restart only interrupts the connection: players reconnect automatically and the game continues.
+
+## Roadmap
+
+Engine search (negamax with alpha-beta) and evaluation are the next engine stages; once they exist, the website can get a "play against the computer" mode.

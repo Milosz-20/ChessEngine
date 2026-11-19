@@ -71,7 +71,9 @@ function currentPly() {
 }
 
 function myOrientation() {
-  return state.you === "black" ? "black" : "white";
+  if (state.you) return state.you;
+  if (state.status === "waiting" && state.isCreator && state.creatorColor === "black") return "black";
+  return "white";
 }
 
 // ---------- rendering ----------
@@ -93,7 +95,14 @@ function render() {
   renderControls();
   updateClocks();
   const myTurn = state.status === "active" && state.you && state.you === state.turn;
-  document.title = (myTurn ? "● Twój ruch · " : "") + "Partia · Szachy";
+  document.title = (myTurn ? "Twój ruch · " : "") + "Partia · Szachy";
+}
+
+function playerName(color) {
+  if (state[color]) return state[color];
+  // before anyone joins, show the creator on the side they asked for
+  if (state.status === "waiting" && state.creatorColor === color) return state.creator;
+  return null;
 }
 
 function renderPlayers() {
@@ -101,11 +110,11 @@ function renderPlayers() {
   const top = bottom === "white" ? "black" : "white";
   for (const [id, color] of [["top-player", top], ["bottom-player", bottom]]) {
     const box = el(id);
-    const name = state[color];
-    const you = state.you === color ? ' <span class="muted">(Ty)</span>' : "";
-    box.querySelector(".name").innerHTML =
-      `${colorDot(color)}<span>${name ? escapeHtml(name) : '<span class="muted">czeka na gracza…</span>'}</span>${you}`;
-    box.classList.toggle("to-move", state.status === "active" && state.turn === color);
+    const name = playerName(color);
+    const sub = (color === "white" ? "białe" : "czarne") + (state.you === color ? " · Ty" : "");
+    box.querySelector(".nm").innerHTML = name
+      ? `<span class="who">${escapeHtml(name)}</span><small>${sub}</small>`
+      : `<span class="who muted">czeka na gracza…</span><small>${color === "white" ? "białe" : "czarne"}</small>`;
     box.dataset.color = color;
   }
 }
@@ -121,7 +130,7 @@ function renderMoves(ply) {
         : `<div></div>`;
     }
   }
-  if (!state.san.length) html = `<div class="muted" style="grid-column:1/-1;padding:10px">Brak ruchów</div>`;
+  if (!state.san.length) html = `<div class="moves-empty">Partia jeszcze się nie zaczęła</div>`;
   grid.innerHTML = html;
   grid.querySelectorAll(".mv").forEach(m => m.onclick = () => goTo(Number(m.dataset.ply)));
   const current = grid.querySelector(".mv.current");
@@ -140,38 +149,39 @@ function renderPanel() {
     if (s.isCreator) {
       html = `<div class="banner">
         <div class="big">Czekamy na przeciwnika</div>
-        <div class="muted">Tempo ${tc}. Wyślij ten link znajomemu:</div>
-        <div class="share"><input id="share-link" readonly value="${location.href}"><button id="copy">Kopiuj</button></div>
-        <div class="row"><button class="danger" id="cancel">Anuluj partię</button></div></div>`;
+        <div class="sub">Tempo ${tc}. Wyślij ten link znajomemu:</div>
+        <div class="share"><input id="share-link" readonly value="${location.href}"><button class="dark small" id="copy">Kopiuj</button></div>
+        <div class="row"><button id="cancel">Anuluj partię</button></div></div>`;
     } else {
       const color = { white: "białymi", black: "czarnymi", random: "losowym kolorem" }[s.creatorColor];
       html = `<div class="banner">
         <div class="big">Zaproszenie do gry</div>
-        <div class="muted"><b>${escapeHtml(s.creator)}</b> gra ${color}, tempo ${tc}.</div>
+        <div class="sub">${escapeHtml(s.creator)} gra ${color}, tempo ${tc}.</div>
         <div class="row"><button class="primary" id="join">Dołącz do partii</button></div></div>`;
     }
   } else if (s.status === "active") {
     if (s.abortInMs !== null && s.abortInMs !== undefined) {
       const who = s.you === "white" ? "Masz" : "Białe mają";
-      html += `<div class="banner"><div class="muted">${who} <b id="abort-secs"></b> s na pierwszy ruch, inaczej partia zostanie przerwana.</div></div>`;
+      html += `<div class="banner"><div class="sub">${who} <b id="abort-secs"></b> s na pierwszy ruch, inaczej partia zostanie przerwana.</div></div>`;
     }
     if (s.drawOffer && s.you && s.drawOffer !== s.you) {
       html += `<div class="banner offer"><div class="big">Przeciwnik proponuje remis</div>
         <div class="row"><button class="primary" id="accept-draw">Przyjmij</button><button id="decline-draw">Odrzuć</button></div></div>`;
     } else if (s.drawOffer && s.drawOffer === s.you) {
-      html += `<div class="banner offer"><div class="muted">Zaproponowano remis — czekamy na odpowiedź.</div></div>`;
+      html += `<div class="banner offer"><div class="sub">Zaproponowałeś remis. Czekamy na odpowiedź.</div></div>`;
     }
-    if (!s.you) html += `<div class="banner"><div class="muted">Oglądasz partię jako widz · tempo ${tc}</div></div>`;
+    if (!s.you) html += `<div class="banner"><div class="sub">Oglądasz partię jako widz · tempo ${tc}</div></div>`;
   } else if (s.status === "finished") {
     let headline = resultText(s.result);
-    if (s.you) headline = { win: "Wygrana! 🎉", loss: "Przegrana", draw: "Remis" }[outcomeFor(s.result, s.you)];
+    if (s.you) headline = { win: "Wygrana", loss: "Przegrana", draw: "Remis" }[outcomeFor(s.result, s.you)];
     html = `<div class="banner"><div class="big">${headline}</div>
-      <div class="muted">${resultText(s.result)} · ${TERMINATION[s.termination] || ""} · ${s.result}</div>
-      <div class="row"><a href="/" style="flex:1"><button class="primary" style="width:100%">Nowa partia</button></a>
-      <a href="/api/games/${s.id}/pgn" style="flex:1"><button style="width:100%">Pobierz PGN</button></a></div></div>`;
+      <div class="sub">${s.result} · ${TERMINATION[s.termination] || ""}</div>
+      <div class="row"><a href="/"><button class="primary">Nowa partia</button></a>
+      <a href="/api/games/${s.id}/pgn"><button>Pobierz PGN</button></a></div></div>`;
   } else if (s.status === "aborted") {
     html = `<div class="banner"><div class="big">Partia przerwana</div>
-      <div class="row"><a href="/" style="flex:1"><button class="primary" style="width:100%">Wróć do lobby</button></a></div></div>`;
+      <div class="sub">Nikt nie wygrał, partia nie trafia do historii.</div>
+      <div class="row"><a href="/"><button class="primary">Wróć do lobby</button></a></div></div>`;
   }
   panel.innerHTML = html;
 
@@ -198,9 +208,9 @@ function renderControls() {
   if (s.status !== "active" || !s.you) { box.innerHTML = ""; return; }
   const canAbort = s.moves.length < 2;
   box.innerHTML = `
-    ${canAbort ? `<button id="abort">Przerwij</button>` : ""}
-    <button id="offer-draw" ${s.drawOffer === s.you ? "disabled" : ""}>½ Remis</button>
-    <button id="resign" class="danger">⚑ Poddaj się</button>`;
+    ${canAbort ? `<button class="link" id="abort">Przerwij</button>` : ""}
+    <button class="link" id="offer-draw" ${s.drawOffer === s.you ? "disabled" : ""}>½ Zaproponuj remis</button>
+    <button class="link" id="resign">Poddaj się</button>`;
   const abort = el("abort");
   if (abort) abort.onclick = () => send({ type: "abort" });
   el("offer-draw").onclick = () => send({ type: "offer_draw" });
@@ -232,7 +242,7 @@ function updateClocks() {
     if (running) ms -= elapsed;
     clock.textContent = formatClock(ms);
     clock.classList.toggle("running", running);
-    clock.classList.toggle("low", running && ms < 10000);
+    clock.classList.toggle("low", ms < 10000 && state.status === "active");
   }
   const abortEl = el("abort-secs");
   if (abortEl && state.abortInMs != null) abortEl.textContent = Math.max(0, Math.ceil((state.abortInMs - elapsed) / 1000));

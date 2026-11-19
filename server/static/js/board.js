@@ -1,13 +1,9 @@
 // Interactive chessboard. It only draws and collects the player's intent; whether a move is
 // legal is decided by the server, which sends the list of legal moves (UCI strings).
 
-const FILES = "abcdefgh";
-const GLYPHS = {
-  // [filled body, outline with details]
-  k: ["♚", "♔"], q: ["♛", "♕"], r: ["♜", "♖"],
-  b: ["♝", "♗"], n: ["♞", "♘"], p: ["♟︎", "♙"],
-};
+import { pieceSvg, PIECE_NAMES } from "./pieces.js";
 
+const FILES = "abcdefgh";
 export function squareName(file, rank) { return FILES[file] + (rank + 1); }
 
 export function parseFen(fen) {
@@ -28,8 +24,7 @@ export function parseFen(fen) {
 }
 
 export function pieceHtml(piece) {
-  const [fill, line] = GLYPHS[piece[1]];
-  return `<div class="piece ${piece[0]}"><span class="fill">${fill}</span><span class="line">${line}</span></div>`;
+  return `<div class="piece">${pieceSvg(piece)}</div>`;
 }
 
 export class Board {
@@ -71,9 +66,7 @@ export class Board {
   }
 
   _resize() {
-    const size = this.el.clientWidth / 8;
-    this.el.style.setProperty("--piece-size", `${size * 0.82}px`);
-    this.squareSize = size;
+    this.squareSize = this.el.clientWidth / 8;
   }
 
   setOrientation(color) {
@@ -150,7 +143,6 @@ export class Board {
       const ghost = this.squares[square].querySelector(".piece").cloneNode(true);
       ghost.classList.add("dragging");
       ghost.style.width = ghost.style.height = `${this.squareSize}px`;
-      ghost.style.fontSize = `${this.squareSize * 0.82}px`;
       ghost.style.left = `${e.clientX}px`;
       ghost.style.top = `${e.clientY}px`;
       document.body.appendChild(ghost);
@@ -246,7 +238,7 @@ export class Board {
     for (const p of order) {
       const btn = document.createElement("button");
       btn.style.width = btn.style.height = `${rect.width}px`;
-      btn.title = { q: "Hetman", r: "Wieża", b: "Goniec", n: "Skoczek" }[p];
+      btn.title = PIECE_NAMES[p];
       btn.dataset.piece = p;
       btn.innerHTML = pieceHtml(color + p);
       btn.onclick = ev => { ev.stopPropagation(); this._closePromotion(); this._play(from + to + p); };

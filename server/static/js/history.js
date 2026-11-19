@@ -1,37 +1,34 @@
 import { api, requireUser, renderTopbar, TERMINATION, outcomeFor, timeControlText, colorDot,
-         formatDate, escapeHtml } from "./common.js";
+         formatDate, escapeHtml, plural } from "./common.js";
 
 const user = await requireUser();
 renderTopbar(user, "history");
 
 const { finished } = await api("/api/my-games");
-const tbody = document.getElementById("games");
+const box = document.getElementById("games");
 const LABEL = { win: "Wygrana", loss: "Przegrana", draw: "Remis" };
 
 const counts = { win: 0, loss: 0, draw: 0 };
 finished.forEach(g => counts[outcomeFor(g.result, g.you)]++);
-document.getElementById("summary").textContent = finished.length
-  ? `${finished.length} partii · ${counts.win} wygranych · ${counts.draw} remisów · ${counts.loss} przegranych`
+const n = finished.length;
+document.getElementById("summary").textContent = n
+  ? `${n} ${plural(n, "partia", "partie", "partii")} · ${counts.win} ${plural(counts.win, "wygrana", "wygrane", "wygranych")} · ` +
+    `${counts.draw} ${plural(counts.draw, "remis", "remisy", "remisów")} · ${counts.loss} ${plural(counts.loss, "przegrana", "przegrane", "przegranych")}`
   : "";
 
-if (!finished.length) {
-  tbody.innerHTML = `<tr><td colspan="8" class="empty">Nie masz jeszcze zakończonych partii. <a href="/">Zagraj pierwszą!</a></td></tr>`;
+if (!n) {
+  box.innerHTML = `<div class="list-empty">Nie masz jeszcze zakończonych partii. <a href="/">Zagraj pierwszą</a></div>`;
 } else {
-  tbody.innerHTML = finished.map(g => {
+  box.innerHTML = finished.map(g => {
     const outcome = outcomeFor(g.result, g.you);
     const opponent = g.you === "white" ? g.black : g.white;
-    return `<tr>
-      <td class="muted">${formatDate(g.finishedAt)}</td>
-      <td><b>${escapeHtml(opponent)}</b></td>
-      <td>${colorDot(g.you)}${g.you === "white" ? "białe" : "czarne"}</td>
-      <td><span class="badge ${outcome}">${LABEL[outcome]}</span> <span class="muted">${g.result}</span></td>
-      <td>${TERMINATION[g.termination] || ""}</td>
-      <td>${Math.ceil(g.moves / 2)}</td>
-      <td>${timeControlText(g.minutes, g.increment)}</td>
-      <td class="actions">
-        <a href="/game/${g.id}"><button class="small">Przeglądaj</button></a>
-        <a href="/api/games/${g.id}/pgn"><button class="small">PGN</button></a>
-      </td>
-    </tr>`;
+    const fullMoves = Math.ceil(g.moves / 2);
+    return `<div class="list-row history-row">
+      <span class="name">${colorDot(g.you)}${escapeHtml(opponent)}<small class="muted" style="display:block;font-weight:400;font-size:12px">${formatDate(g.finishedAt)}</small></span>
+      <span><span class="tag ${outcome}">${LABEL[outcome]}</span></span>
+      <span class="muted">${TERMINATION[g.termination] || ""} · ${fullMoves} ${plural(fullMoves, "ruch", "ruchy", "ruchów")}</span>
+      <span class="mono muted">${timeControlText(g.minutes, g.increment)}</span>
+      <span class="actions"><a href="/game/${g.id}">Przeglądaj</a><a href="/api/games/${g.id}/pgn">PGN</a></span>
+    </div>`;
   }).join("");
 }

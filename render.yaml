@@ -1,0 +1,19 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+# One free web service. The database is a free MongoDB Atlas cluster (set MONGODB_URI).
+services:
+  - type: web
+    name: szachy
+    runtime: python
+    plan: free
+    # Live games are kept in memory, so the app must run as a single instance.
+    numInstances: 1
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server.app:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips "*"
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: COOKIE_SECURE
+        value: "1"
+      - key: MONGODB_URI
+        sync: false

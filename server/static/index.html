@@ -3,40 +3,39 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♞</text></svg>">
+<meta name="theme-color" content="#f4ebe6">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/app.css">
 <title>Graj · Szachy</title>
 </head>
 <body>
 <main>
-  <div class="grid-2">
-    <div class="card">
-      <h2>Nowa partia</h2>
+  <div class="lobby">
+    <div>
+      <div class="eyebrow">Nowa partia</div>
+      <h1 class="title">Zagraj z przyjacielem</h1>
       <div class="tc-grid" id="tc-grid"></div>
-      <div class="muted" style="margin-top:14px;font-size:13px">Grasz jako</div>
-      <div class="color-pick" id="color-pick">
-        <button type="button" data-color="white"><span class="color-dot white"></span>Białe</button>
-        <button type="button" data-color="random" class="selected"><span class="color-dot random"></span>Losowo</button>
-        <button type="button" data-color="black"><span class="color-dot black"></span>Czarne</button>
+      <div class="label-small">Grasz jako</div>
+      <div class="segmented" id="color-pick">
+        <button type="button" data-color="white"><span class="dot-color white"></span>Białe</button>
+        <button type="button" data-color="random" class="selected"><span class="dot-color random"></span>Losowo</button>
+        <button type="button" data-color="black"><span class="dot-color black"></span>Czarne</button>
       </div>
-      <button class="primary" id="create" style="width:100%">Utwórz partię</button>
-      <div class="error-text" id="create-error" style="margin-top:8px"></div>
-      <div class="muted" style="font-size:13px">Po utworzeniu dostaniesz link, który możesz wysłać znajomemu. Partia pojawi się też na liście obok.</div>
+      <button class="primary block" id="create">Utwórz partię</button>
+      <div class="error-text" id="create-error"></div>
+      <div class="hint">Dostaniesz link do wysłania znajomemu. Partia pojawi się też na liście otwartych gier.</div>
     </div>
-    <div class="stack">
-      <div class="card" id="active-card" hidden>
-        <h2>Twoje trwające partie</h2>
-        <table class="list"><tbody id="active-games"></tbody></table>
+    <div>
+      <div class="section" id="active-section" hidden>
+        <div class="list-head">Twoje trwające partie</div>
+        <div id="active-games"></div>
       </div>
-      <div class="card">
-        <h2>Otwarte partie</h2>
-        <table class="list">
-          <thead><tr><th>Gracz</th><th>Tempo</th><th>Kolor gracza</th><th></th></tr></thead>
-          <tbody id="open-games"></tbody>
-        </table>
+      <div class="section">
+        <div class="list-head">Otwarte partie</div>
+        <div id="open-games"></div>
       </div>
     </div>
   </div>

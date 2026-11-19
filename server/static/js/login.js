@@ -1,4 +1,7 @@
 import { api } from "./common.js";
+import { logoSvg } from "./pieces.js";
+
+document.getElementById("logo").innerHTML = logoSvg();
 
 let mode = "login";
 const form = document.getElementById("auth-form");
@@ -15,10 +18,10 @@ function nextUrl() {
 // Already logged in? Go straight on.
 api("/api/me").then(() => location.replace(nextUrl())).catch(() => {});
 
-document.querySelectorAll(".tabs button").forEach(btn => {
+document.querySelectorAll("#tabs button").forEach(btn => {
   btn.onclick = () => {
     mode = btn.dataset.mode;
-    document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b === btn));
+    document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("selected", b === btn));
     password2Field.hidden = mode !== "register";
     submit.textContent = mode === "login" ? "Zaloguj się" : "Załóż konto";
     document.getElementById("password").autocomplete = mode === "login" ? "current-password" : "new-password";
