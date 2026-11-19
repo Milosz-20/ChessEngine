@@ -235,6 +235,7 @@ h1.title { margin: 0 0 26px; font-size: 36px; line-height: 1.1; font-weight: 600
 .sq.dark { background: var(--sq-d); }
 .sq.last::before, .sq.selected::before { content: ""; position: absolute; inset: 0; }
 .sq.last::before { background: var(--last); }
+.sq.premove::before { content: ""; position: absolute; inset: 0; background: rgba(74, 96, 128, .34); }
 .sq.selected::before { background: var(--selected); }
 .sq.check { background: radial-gradient(circle, rgba(168,87,90,.95) 0%, rgba(168,87,90,.55) 38%, rgba(168,87,90,0) 72%), var(--sq-l); }
 .sq.dark.check { background: radial-gradient(circle, rgba(168,87,90,.95) 0%, rgba(168,87,90,.55) 38%, rgba(168,87,90,0) 72%), var(--sq-d); }

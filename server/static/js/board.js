@@ -28,10 +28,14 @@ export function pieceHtml(piece) {
 }
 
 export class Board {
-  constructor(el, { onMove } = {}) {
+  constructor(el, { onMove, onPremove } = {}) {
     this.el = el;
     this.el.classList.add("board");
     this.onMove = onMove || (() => {});
+    this.onPremove = onPremove || (() => {});
+    this.premovable = false;   // opponent's turn: own pieces can be picked to queue a premove
+    this.myColor = null;       // "w" / "b"
+    this.premove = null;       // queued premove, e.g. "e2e4"
     this.orientation = "white";
     this.pieces = {};
     this.legal = [];
@@ -76,19 +80,25 @@ export class Board {
     this.render();
   }
 
-  setState({ fen, legal = [], lastMove = null, check = null, interactive = false }) {
+  setState({ fen, legal = [], lastMove = null, check = null, interactive = false,
+              premovable = false, myColor = null, premove = null }) {
     this.pieces = parseFen(fen);
     this.legal = legal;
     this.lastMove = lastMove;
     this.check = check;
     this.interactive = interactive;
+    this.premovable = premovable && !interactive;
+    this.myColor = myColor;
+    this.premove = premove;
     if (this.selected && !this._targetsFrom(this.selected).length) this.selected = null;
     this._closePromotion();
     this.render();
   }
 
   render() {
-    this.el.classList.toggle("interactive", this.interactive);
+    this.el.classList.toggle("interactive", this.interactive || this.premovable);
+    const preFrom = this.premove && this.premove.slice(0, 2);
+    const preTo = this.premove && this.premove.slice(2, 4);
     const targets = this.selected ? this._targetsFrom(this.selected) : [];
     const lastFrom = this.lastMove && this.lastMove.slice(0, 2);
     const lastTo = this.lastMove && this.lastMove.slice(2, 4);
@@ -102,15 +112,61 @@ export class Board {
       sq.classList.toggle("check", name === this.check);
       sq.classList.toggle("target", targets.includes(name));
       sq.classList.toggle("capture", targets.includes(name) && !!piece);
-      sq.classList.toggle("movable", this.interactive && this._targetsFrom(name).length > 0);
+      sq.classList.toggle("premove", name === preFrom || name === preTo);
+      sq.classList.toggle("movable", this._targetsFrom(name).length > 0);
     }
   }
 
   _targetsFrom(square) {
-    if (!this.interactive) return [];
-    const out = new Set();
-    for (const m of this.legal) if (m.startsWith(square)) out.add(m.slice(2, 4));
-    return [...out];
+    if (this.interactive) {
+      const out = new Set();
+      for (const m of this.legal) if (m.startsWith(square)) out.add(m.slice(2, 4));
+      return [...out];
+    }
+    if (this.premovable) return this._premoveTargets(square);
+    return [];
+  }
+
+  // Squares a piece could go to on our next turn, judged by how it moves and ignoring
+  // what the opponent may do (their pieces might move away, so sliders pass through them).
+  _premoveTargets(square) {
+    const piece = this.pieces[square];
+    if (!piece || piece[0] !== this.myColor) return [];
+    const f0 = FILES.indexOf(square[0]), r0 = Number(square[1]) - 1;
+    const own = (f, r) => { const p = this.pieces[squareName(f, r)]; return p && p[0] === this.myColor; };
+    const on = (f, r) => f >= 0 && f < 8 && r >= 0 && r < 8;
+    const out = [];
+    const add = (f, r) => { if (on(f, r) && !own(f, r)) out.push(squareName(f, r)); };
+    const ray = (df, dr) => {
+      for (let f = f0 + df, r = r0 + dr; on(f, r) && !own(f, r); f += df, r += dr) out.push(squareName(f, r));
+    };
+    const type = piece[1];
+    if (type === "n") {
+      for (const [df, dr] of [[1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2]]) add(f0 + df, r0 + dr);
+    } else if (type === "k") {
+      for (let df = -1; df <= 1; df++) for (let dr = -1; dr <= 1; dr++) if (df || dr) add(f0 + df, r0 + dr);
+      const home = this.myColor === "w" ? 0 : 7;
+      if (f0 === 4 && r0 === home) { add(6, home); add(2, home); }
+    } else if (type === "p") {
+      const dir = this.myColor === "w" ? 1 : -1;
+      add(f0, r0 + dir);
+      if (r0 === (this.myColor === "w" ? 1 : 6) && !own(f0, r0 + dir)) add(f0, r0 + 2 * dir);
+      add(f0 - 1, r0 + dir);
+      add(f0 + 1, r0 + dir);
+    } else {
+      const dirs = [];
+      if (type !== "b") dirs.push([1, 0], [-1, 0], [0, 1], [0, -1]);
+      if (type !== "r") dirs.push([1, 1], [1, -1], [-1, 1], [-1, -1]);
+      for (const [df, dr] of dirs) ray(df, dr);
+    }
+    return out;
+  }
+
+  _setPremove(uci) {
+    this.premove = uci;
+    this.selected = null;
+    this.render();
+    this.onPremove(uci);
   }
 
   _squareAt(x, y) {
@@ -123,7 +179,10 @@ export class Board {
     this.el.addEventListener("pointerdown", e => this._down(e));
     window.addEventListener("pointermove", e => this._move(e));
     window.addEventListener("pointerup", e => this._up(e));
-    this.el.addEventListener("contextmenu", e => e.preventDefault());
+    this.el.addEventListener("contextmenu", e => {
+      e.preventDefault();
+      if (this.premove || this.selected) { this.selected = null; this._setPremove(null); }
+    });
   }
 
   _down(e) {
@@ -149,9 +208,10 @@ export class Board {
       this.squares[square].classList.add("drag-origin");
       this.drag = { from: square, ghost, hover: null };
       e.preventDefault();
-    } else if (this.selected) {
+    } else if (this.selected || this.premove) {
+      // clicking anywhere else cancels the selection and any queued premove
       this.selected = null;
-      this.render();
+      if (this.premove) this._setPremove(null); else this.render();
     }
   }
 
@@ -182,6 +242,12 @@ export class Board {
   }
 
   _attempt(from, to) {
+    if (!this.interactive && this.premovable) {
+      const piece = this.pieces[from];
+      const lastRank = this.myColor === "w" ? "8" : "1";
+      this._setPremove(from + to + (piece && piece[1] === "p" && to[1] === lastRank ? "q" : ""));
+      return;
+    }
     const base = from + to;
     const options = this.legal.filter(m => m.startsWith(base));
     if (!options.length) return;

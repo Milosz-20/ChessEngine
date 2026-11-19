@@ -6,12 +6,16 @@ const gameId = location.pathname.split("/").pop();
 const user = await requireUser();
 renderTopbar(user, "play");
 
-const board = new Board(document.getElementById("board"), { onMove: uci => send({ type: "move", uci }) });
+const board = new Board(document.getElementById("board"), {
+  onMove: uci => send({ type: "move", uci }),
+  onPremove: uci => { premove = uci; },
+});
 const el = id => document.getElementById(id);
 
 let state = null;
 let receivedAt = 0;      // performance.now() when `state` arrived, for ticking clocks
 let viewPly = null;      // null = follow the live position, otherwise index into state.fens
+let premove = null;      // move queued during the opponent's turn, played as soon as it's ours
 let ws = null;
 let retry = 0;
 let pingTimer = null;
@@ -63,7 +67,21 @@ function onState(next) {
   if (wasAtEnd) viewPly = null;
   if (prev && next.moves.length > prev.moves.length) playSound(next);
   if (prev && prev.status !== next.status && next.status === "finished") playSound(next, true);
+  if (premove && tryPremove()) return;
   render();
+}
+
+// Our turn has come: play the queued premove if it is legal now, otherwise drop it.
+function tryPremove() {
+  if (state.status !== "active" || !state.you) { premove = null; return false; }
+  if (state.turn !== state.you) return false;
+  const uci = premove;
+  premove = null;
+  const match = state.legal.find(m => m === uci) || state.legal.find(m => m === uci.slice(0, 4) + "q");
+  if (!match) return false;
+  render();
+  board._play(match);   // shows the move at once, then sends it
+  return true;
 }
 
 function currentPly() {
@@ -88,6 +106,9 @@ function render() {
     lastMove: ply > 0 ? state.moves[ply - 1] : null,
     check: live ? state.check : null,
     interactive: live && state.status === "active" && state.you === state.turn,
+    premovable: live && state.status === "active" && !!state.you && state.you !== state.turn,
+    myColor: state.you ? state.you[0] : null,
+    premove: live ? premove : null,
   });
   renderPlayers();
   renderMoves(ply);
