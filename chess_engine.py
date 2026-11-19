@@ -18,11 +18,11 @@ class MagicManager:
         self.rook_magics = []
         self.bishop_magics = []
 
-        if not os.path.exists("magic_numbers.json"):
+        magic_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "magic_numbers.json")
+        if not os.path.exists(magic_path):
             raise FileNotFoundError("Run generate_magics.py first!")
 
-        print("Loading Magic Numbers...")
-        with open("magic_numbers.json", 'r') as f:
+        with open(magic_path, 'r') as f:
             data = json.load(f)
             self.rook_magics = data["rook"]
             self.bishop_magics = data["bishop"]
@@ -60,6 +60,17 @@ class MagicManager:
         idx = ((occupancy & entry["mask"]) * entry["magic"]) & FULL_BOARD_MASK
         return self.bishop_table[square][idx >> entry["shift"]]
 
+_MAGICS = None
+
+
+def get_magics():
+    # Attack tables are identical for every board, so build them once per process
+    global _MAGICS
+    if _MAGICS is None:
+        _MAGICS = MagicManager()
+    return _MAGICS
+
+
 class Bitboard:
     def __init__(self):
         self.wp = 0x000000000000FF00  # White Pawns
@@ -90,7 +101,7 @@ class Bitboard:
 
         self.history = []
 
-        self.magics = MagicManager()
+        self.magics = get_magics()
 
     # Loads a position from a FEN string, replacing the current board state.
     def load_fen(self, fen):

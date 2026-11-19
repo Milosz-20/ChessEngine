@@ -1,0 +1,273 @@
+// Interactive chessboard. It only draws and collects the player's intent; whether a move is
+// legal is decided by the server, which sends the list of legal moves (UCI strings).
+
+const FILES = "abcdefgh";
+const GLYPHS = {
+  // [filled body, outline with details]
+  k: ["♚", "♔"], q: ["♛", "♕"], r: ["♜", "♖"],
+  b: ["♝", "♗"], n: ["♞", "♘"], p: ["♟︎", "♙"],
+};
+
+export function squareName(file, rank) { return FILES[file] + (rank + 1); }
+
+export function parseFen(fen) {
+  // { "e1": "wk", ... }
+  const pieces = {};
+  const rows = fen.split(" ")[0].split("/");
+  rows.forEach((row, i) => {
+    const rank = 7 - i;
+    let file = 0;
+    for (const ch of row) {
+      if (/\d/.test(ch)) { file += Number(ch); continue; }
+      const color = ch === ch.toUpperCase() ? "w" : "b";
+      pieces[squareName(file, rank)] = color + ch.toLowerCase();
+      file++;
+    }
+  });
+  return pieces;
+}
+
+export function pieceHtml(piece) {
+  const [fill, line] = GLYPHS[piece[1]];
+  return `<div class="piece ${piece[0]}"><span class="fill">${fill}</span><span class="line">${line}</span></div>`;
+}
+
+export class Board {
+  constructor(el, { onMove } = {}) {
+    this.el = el;
+    this.el.classList.add("board");
+    this.onMove = onMove || (() => {});
+    this.orientation = "white";
+    this.pieces = {};
+    this.legal = [];
+    this.lastMove = null;
+    this.check = null;
+    this.interactive = false;
+    this.selected = null;
+    this.drag = null;
+    this.squares = {};
+    this._build();
+    this._bindPointer();
+    new ResizeObserver(() => this._resize()).observe(this.el);
+  }
+
+  _build() {
+    this.el.innerHTML = "";
+    this.squares = {};
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const rank = this.orientation === "white" ? 7 - row : row;
+        const file = this.orientation === "white" ? col : 7 - col;
+        const name = squareName(file, rank);
+        const sq = document.createElement("div");
+        sq.className = "sq " + ((file + rank) % 2 === 0 ? "dark" : "light");
+        sq.dataset.square = name;
+        if (col === 0) sq.insertAdjacentHTML("beforeend", `<span class="coord rank">${rank + 1}</span>`);
+        if (row === 7) sq.insertAdjacentHTML("beforeend", `<span class="coord file">${FILES[file]}</span>`);
+        this.el.appendChild(sq);
+        this.squares[name] = sq;
+      }
+    }
+  }
+
+  _resize() {
+    const size = this.el.clientWidth / 8;
+    this.el.style.setProperty("--piece-size", `${size * 0.82}px`);
+    this.squareSize = size;
+  }
+
+  setOrientation(color) {
+    if (color === this.orientation) return;
+    this.orientation = color;
+    this._build();
+    this.render();
+  }
+
+  setState({ fen, legal = [], lastMove = null, check = null, interactive = false }) {
+    this.pieces = parseFen(fen);
+    this.legal = legal;
+    this.lastMove = lastMove;
+    this.check = check;
+    this.interactive = interactive;
+    if (this.selected && !this._targetsFrom(this.selected).length) this.selected = null;
+    this._closePromotion();
+    this.render();
+  }
+
+  render() {
+    this.el.classList.toggle("interactive", this.interactive);
+    const targets = this.selected ? this._targetsFrom(this.selected) : [];
+    const lastFrom = this.lastMove && this.lastMove.slice(0, 2);
+    const lastTo = this.lastMove && this.lastMove.slice(2, 4);
+    for (const [name, sq] of Object.entries(this.squares)) {
+      const piece = this.pieces[name];
+      const existing = sq.querySelector(".piece");
+      if (existing) existing.remove();
+      if (piece) sq.insertAdjacentHTML("beforeend", pieceHtml(piece));
+      sq.classList.toggle("last", name === lastFrom || name === lastTo);
+      sq.classList.toggle("selected", name === this.selected);
+      sq.classList.toggle("check", name === this.check);
+      sq.classList.toggle("target", targets.includes(name));
+      sq.classList.toggle("capture", targets.includes(name) && !!piece);
+      sq.classList.toggle("movable", this.interactive && this._targetsFrom(name).length > 0);
+    }
+  }
+
+  _targetsFrom(square) {
+    if (!this.interactive) return [];
+    const out = new Set();
+    for (const m of this.legal) if (m.startsWith(square)) out.add(m.slice(2, 4));
+    return [...out];
+  }
+
+  _squareAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    const sq = el && el.closest && el.closest(".sq");
+    return sq && this.el.contains(sq) ? sq.dataset.square : null;
+  }
+
+  _bindPointer() {
+    this.el.addEventListener("pointerdown", e => this._down(e));
+    window.addEventListener("pointermove", e => this._move(e));
+    window.addEventListener("pointerup", e => this._up(e));
+    this.el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+
+  _down(e) {
+    if (e.button !== 0 || this.promotion) return;
+    const square = this._squareAt(e.clientX, e.clientY);
+    if (!square) return;
+
+    // Second click of a click-click move
+    if (this.selected && this._targetsFrom(this.selected).includes(square)) {
+      this._attempt(this.selected, square);
+      return;
+    }
+    if (this._targetsFrom(square).length) {
+      this.selected = square;
+      this.render();
+      // start dragging
+      const ghost = this.squares[square].querySelector(".piece").cloneNode(true);
+      ghost.classList.add("dragging");
+      ghost.style.width = ghost.style.height = `${this.squareSize}px`;
+      ghost.style.fontSize = `${this.squareSize * 0.82}px`;
+      ghost.style.left = `${e.clientX}px`;
+      ghost.style.top = `${e.clientY}px`;
+      document.body.appendChild(ghost);
+      this.squares[square].classList.add("drag-origin");
+      this.drag = { from: square, ghost, hover: null };
+      e.preventDefault();
+    } else if (this.selected) {
+      this.selected = null;
+      this.render();
+    }
+  }
+
+  _move(e) {
+    if (!this.drag) return;
+    this.drag.ghost.style.left = `${e.clientX}px`;
+    this.drag.ghost.style.top = `${e.clientY}px`;
+    const sq = this._squareAt(e.clientX, e.clientY);
+    if (sq !== this.drag.hover) {
+      if (this.drag.hover) this.squares[this.drag.hover].classList.remove("hover");
+      if (sq && this._targetsFrom(this.drag.from).includes(sq)) this.squares[sq].classList.add("hover");
+      this.drag.hover = sq;
+    }
+  }
+
+  _up(e) {
+    if (!this.drag) return;
+    const { from, ghost, hover } = this.drag;
+    ghost.remove();
+    this.squares[from].classList.remove("drag-origin");
+    if (hover) this.squares[hover].classList.remove("hover");
+    this.drag = null;
+    const to = this._squareAt(e.clientX, e.clientY);
+    if (to && to !== from && this._targetsFrom(from).includes(to)) {
+      this._attempt(from, to);
+    }
+    // dropping back on the origin keeps it selected for a click-click move
+  }
+
+  _attempt(from, to) {
+    const base = from + to;
+    const options = this.legal.filter(m => m.startsWith(base));
+    if (!options.length) return;
+    if (options.length > 1) {
+      this._askPromotion(from, to);
+      return;
+    }
+    this._play(options[0]);
+  }
+
+  _play(uci) {
+    this.selected = null;
+    this._applyLocally(uci);
+    this.interactive = false;
+    this.legal = [];
+    this.render();
+    this.onMove(uci);
+  }
+
+  // Show the move immediately; the server's answer replaces this position anyway.
+  _applyLocally(uci) {
+    const from = uci.slice(0, 2), to = uci.slice(2, 4), promo = uci[4];
+    const piece = this.pieces[from];
+    if (!piece) return;
+    delete this.pieces[from];
+    if (piece[1] === "p" && from[0] !== to[0] && !this.pieces[to]) {
+      delete this.pieces[to[0] + from[1]]; // en passant
+    }
+    if (piece[1] === "k" && Math.abs(FILES.indexOf(from[0]) - FILES.indexOf(to[0])) === 2) {
+      const rank = from[1];
+      const [rf, rt] = to[0] === "g" ? ["h", "f"] : ["a", "d"];
+      this.pieces[rt + rank] = this.pieces[rf + rank];
+      delete this.pieces[rf + rank];
+    }
+    this.pieces[to] = promo ? piece[0] + promo : piece;
+    this.lastMove = uci;
+    this.check = null;
+  }
+
+  _askPromotion(from, to) {
+    const color = this.pieces[from][0];
+    const backdrop = document.createElement("div");
+    backdrop.className = "promo-backdrop";
+    const box = document.createElement("div");
+    box.className = "promo";
+    const sqEl = this.squares[to];
+    const boardRect = this.el.getBoundingClientRect();
+    const rect = sqEl.getBoundingClientRect();
+    const fromTop = rect.top - boardRect.top < boardRect.height / 2;
+    box.style.left = `${rect.left - boardRect.left}px`;
+    box.style.width = `${rect.width}px`;
+    if (fromTop) box.style.top = "0px"; else box.style.bottom = "0px";
+    const order = fromTop ? ["q", "n", "r", "b"] : ["b", "r", "n", "q"];
+    for (const p of order) {
+      const btn = document.createElement("button");
+      btn.style.width = btn.style.height = `${rect.width}px`;
+      btn.title = { q: "Hetman", r: "Wieża", b: "Goniec", n: "Skoczek" }[p];
+      btn.dataset.piece = p;
+      btn.innerHTML = pieceHtml(color + p);
+      btn.onclick = ev => { ev.stopPropagation(); this._closePromotion(); this._play(from + to + p); };
+      box.appendChild(btn);
+    }
+    backdrop.addEventListener("pointerdown", ev => {
+      ev.stopPropagation();
+      this._closePromotion();
+      this.selected = null;
+      this.render();
+    });
+    box.addEventListener("pointerdown", ev => ev.stopPropagation());
+    this.el.appendChild(backdrop);
+    this.el.appendChild(box);
+    this.promotion = { backdrop, box };
+  }
+
+  _closePromotion() {
+    if (!this.promotion) return;
+    this.promotion.backdrop.remove();
+    this.promotion.box.remove();
+    this.promotion = null;
+  }
+}

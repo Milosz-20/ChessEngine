@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♞</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/app.css">
+<title>Zaloguj się · Szachy</title>
+</head>
+<body>
+<main>
+  <div class="auth-wrap">
+    <div style="text-align:center;margin-bottom:24px">
+      <div style="font-family:var(--piece-font);font-size:56px;color:var(--accent);line-height:1">♞</div>
+      <h1 style="margin:6px 0 4px;font-size:26px">Szachy online</h1>
+      <div class="muted">Graj z przyjaciółmi w przeglądarce</div>
+    </div>
+    <div class="card">
+      <div class="tabs">
+        <button type="button" data-mode="login" class="active">Logowanie</button>
+        <button type="button" data-mode="register">Rejestracja</button>
+      </div>
+      <form id="auth-form" novalidate>
+        <div class="field">
+          <label for="username">Nazwa użytkownika</label>
+          <input id="username" name="username" autocomplete="username" required maxlength="20">
+        </div>
+        <div class="field">
+          <label for="password">Hasło</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="field" id="password2-field" hidden>
+          <label for="password2">Powtórz hasło</label>
+          <input id="password2" name="password2" type="password" autocomplete="new-password">
+        </div>
+        <div class="error-text" id="error"></div>
+        <button class="primary" type="submit" style="width:100%;margin-top:6px" id="submit">Zaloguj się</button>
+      </form>
+    </div>
+  </div>
+</main>
+<script type="module" src="/static/js/login.js"></script>
+</body>
+</html>

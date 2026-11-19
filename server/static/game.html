@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♞</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Symbols+2&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/app.css">
+<title>Partia · Szachy</title>
+</head>
+<body>
+<main style="max-width:1200px">
+  <div class="game-layout">
+    <div class="board-wrap"><div id="board"></div></div>
+    <div class="side">
+      <div class="player" id="top-player"><div class="name"></div><div class="clock"></div></div>
+      <div id="panel"></div>
+      <div class="moves-box" id="moves-box"><div class="moves-grid" id="moves"></div></div>
+      <div class="nav-buttons">
+        <button id="nav-first" title="Początek">⏮</button>
+        <button id="nav-prev" title="Poprzedni ruch">◀</button>
+        <button id="nav-next" title="Następny ruch">▶</button>
+        <button id="nav-last" title="Aktualna pozycja">⏭</button>
+      </div>
+      <div class="controls" id="controls"></div>
+      <div class="player" id="bottom-player"><div class="name"></div><div class="clock"></div></div>
+      <div class="conn-status" id="conn-status"></div>
+    </div>
+  </div>
+</main>
+<script type="module" src="/static/js/game.js"></script>
+</body>
+</html>

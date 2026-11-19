@@ -1,0 +1,4 @@
+fastapi==0.165.0
+uvicorn[standard]==0.54.0
+pymongo==4.20.0
+mongomock==4.3.0
