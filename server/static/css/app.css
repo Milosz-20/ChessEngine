@@ -119,15 +119,19 @@ h1.title { margin: 0 0 26px; font-size: 36px; line-height: 1.1; font-weight: 600
   border: none; border-radius: 0; background: var(--bg); text-align: left;
   padding: 14px 16px; display: flex; flex-direction: column; align-items: flex-start;
 }
-.tc-grid button:hover:not(:disabled) { background: var(--surface); }
+.tc-grid button { transition: background .18s ease, color .18s ease; }
+.tc-grid button .tc-name { transition: color .18s ease, opacity .18s ease; }
+.tc-grid button:hover:not(:disabled):not(.selected) { background: var(--surface); }
 .tc-grid .tc { font-family: var(--mono); font-size: 18px; font-weight: 500; }
 .tc-grid .tc-name { font-size: 12px; color: var(--muted); font-weight: 400; }
-.tc-grid button.selected { background: var(--ink); color: var(--bg); }
+.tc-grid button.selected, .tc-grid button.selected:hover { background: var(--ink); color: var(--bg); }
 .tc-grid button.selected .tc-name { color: inherit; opacity: .7; }
 
 .segmented { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--hair); border-radius: var(--r-pill); margin: 22px 0; }
 .segmented button { border: none; padding: 8px 6px; font-size: 14px; color: var(--muted); }
-.segmented button.selected { background: var(--bg); color: var(--ink); box-shadow: 0 1px 2px rgba(47,36,38,.12); }
+.segmented button { transition: background .18s ease, color .18s ease, box-shadow .18s ease; }
+.segmented button:hover:not(:disabled):not(.selected) { color: var(--ink); }
+.segmented button.selected, .segmented button.selected:hover { background: var(--bg); color: var(--ink); box-shadow: 0 1px 2px rgba(47,36,38,.12); }
 .label-small { font-size: 13px; color: var(--muted); margin-top: 22px; }
 .label-small + .segmented { margin-top: 8px; }
 .hint { font-size: 13px; color: var(--muted); margin-top: 14px; }
