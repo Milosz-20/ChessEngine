@@ -83,6 +83,7 @@ export class Board {
   setState({ fen, legal = [], lastMove = null, check = null, interactive = false,
               premovable = false, myColor = null, premove = null }) {
     this.pieces = parseFen(fen);
+    this.castling = fen.split(" ")[2] || "-";   // e.g. "KQkq"
     this.legal = legal;
     this.lastMove = lastMove;
     this.check = check;
@@ -158,7 +159,14 @@ export class Board {
     } else if (type === "k") {
       for (let df = -1; df <= 1; df++) for (let dr = -1; dr <= 1; dr++) if (df || dr) add(f0 + df, r0 + dr);
       const home = this.myColor === "w" ? 0 : 7;
-      if (!live && f0 === 4 && r0 === home) { add(6, home); add(2, home); }
+      // premove castling only while the right still exists and nothing stands in between
+      if (!live && f0 === 4 && r0 === home) {
+        const white = this.myColor === "w";
+        const free = files => files.every(f => !this.pieces[squareName(f, home)]);
+        const rook = f => this.pieces[squareName(f, home)] === this.myColor + "r";
+        if ((this.castling || "").includes(white ? "K" : "k") && rook(7) && free([5, 6])) add(6, home);
+        if ((this.castling || "").includes(white ? "Q" : "q") && rook(0) && free([1, 2, 3])) add(2, home);
+      }
     } else if (type === "p") {
       const dir = this.myColor === "w" ? 1 : -1;
       const empty = (f, r) => on(f, r) && !this.pieces[squareName(f, r)];
