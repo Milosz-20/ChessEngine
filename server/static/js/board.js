@@ -205,12 +205,11 @@ export class Board {
       this._attempt(this.selected, square);
       return;
     }
-    // In check, trying a piece that can't move, or a square the selected piece can't reach,
-    // is an illegal attempt: point at the king.
+    // In check, picking up a piece that has no legal move is an illegal attempt: point at the
+    // king. Clicking an empty or enemy square just deselects and never flashes.
     const piece = this.pieces[square];
-    const ownPiece = piece && piece[0] === this.myColor;
-    if (this.interactive && this.check && square !== this.selected &&
-        ((ownPiece && !this._targetsFrom(square).length) || (this.selected && !ownPiece))) {
+    if (this.interactive && this.check && piece && piece[0] === this.myColor &&
+        !this._targetsFrom(square).length) {
       this._flashCheck();
     }
     if (this._targetsFrom(square).length) {
