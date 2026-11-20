@@ -242,30 +242,17 @@ h1.title { margin: 0 0 26px; font-size: 36px; line-height: 1.1; font-weight: 600
 .sq.premove::before { content: ""; position: absolute; inset: 0; background: rgba(74, 96, 128, .34); }
 .sq.selected::before { background: var(--selected); }
 /* King in check: shown only as a short flash after an illegal attempt.
-   The whole square fills with solid red, holds, then fades back; the king gives a small shake. */
+   The whole square fills with solid red, holds, then fades back. */
 .sq.check-flash::after {
   content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
   background: #c4554f;
   animation: check-fill .85s ease-out forwards;
 }
-.sq.check-flash .piece { animation: check-shake .85s ease-out; }
 @keyframes check-fill {
   0% { opacity: 0; }
   15% { opacity: .9; }
   65% { opacity: .9; }
   100% { opacity: 0; }
-}
-@keyframes check-shake {
-  0%, 100% { transform: translateX(0); }
-  12% { transform: translateX(-4%); }
-  26% { transform: translateX(5%); }
-  40% { transform: translateX(-5%); }
-  54% { transform: translateX(4%); }
-  68% { transform: translateX(-2.5%); }
-  82% { transform: translateX(1.5%); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .sq.check-flash .piece { animation: none; }
 }
 .sq.target::after { content: ""; position: absolute; left: 39%; top: 39%; width: 22%; height: 22%; border-radius: 50%; background: var(--dot); z-index: 3; pointer-events: none; }
 .sq.target.capture::after { left: 4%; top: 4%; width: 92%; height: 92%; background: transparent; border: 5px solid var(--dot); }
