@@ -137,7 +137,7 @@ export class Board {
 
   // Squares a piece can reach by how it moves, ignoring checks and pins.
   // live=true: the current position (sliders stop at enemies, pawns capture only pieces, no castling).
-  // live=false: premove guess (sliders pass enemies that may move away).
+  // live=false: premove guess (pawn pushes and castling are looser).
   _pseudoTargets(square, live) {
     const piece = this.pieces[square];
     if (!piece || piece[0] !== this.myColor) return [];
@@ -150,7 +150,7 @@ export class Board {
     const ray = (df, dr) => {
       for (let f = f0 + df, r = r0 + dr; on(f, r) && !own(f, r); f += df, r += dr) {
         out.push(squareName(f, r));
-        if (live && enemy(f, r)) break;
+        if (enemy(f, r)) break;          // can't slide through an enemy piece
       }
     };
     const type = piece[1];
