@@ -249,7 +249,7 @@ h1.title { margin: 0 0 26px; font-size: 36px; line-height: 1.1; font-weight: 600
     radial-gradient(circle, rgba(168,87,90,.7) 0%, rgba(168,87,90,.42) 30%, rgba(168,87,90,.16) 50%, rgba(168,87,90,0) 68%);
   animation: check-glow .85s cubic-bezier(.25,.8,.3,1) forwards;
 }
-.sq.check-flash .piece { animation: check-shake .42s cubic-bezier(.36,.07,.19,.97); }
+.sq.check-flash .piece { animation: check-shake .85s cubic-bezier(.36,.07,.19,.97); }
 .sq.check-flash { z-index: 2; overflow: visible; }
 @keyframes check-glow {
   0% { opacity: 0; transform: scale(.55); }
