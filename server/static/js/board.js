@@ -136,7 +136,7 @@ export class Board {
 
   // Squares a piece can reach by how it moves, ignoring checks and pins.
   // live=true: the current position (sliders stop at enemies, pawns capture only pieces, no castling).
-  // live=false: premove guess (sliders pass enemies that may move away, pawn diagonals always shown).
+  // live=false: premove guess (sliders pass enemies that may move away).
   _pseudoTargets(square, live) {
     const piece = this.pieces[square];
     if (!piece || piece[0] !== this.myColor) return [];
@@ -171,8 +171,8 @@ export class Board {
       } else {
         add(f0, r0 + dir);
         if (r0 === (this.myColor === "w" ? 1 : 6) && !own(f0, r0 + dir)) add(f0, r0 + 2 * dir);
-        add(f0 - 1, r0 + dir);
-        add(f0 + 1, r0 + dir);
+        // diagonals only where there is something to capture right now
+        for (const df of [-1, 1]) if (on(f0 + df, r0 + dir) && enemy(f0 + df, r0 + dir)) add(f0 + df, r0 + dir);
       }
     } else {
       const dirs = [];
