@@ -109,7 +109,6 @@ export class Board {
       if (piece) sq.insertAdjacentHTML("beforeend", pieceHtml(piece));
       sq.classList.toggle("last", name === lastFrom || name === lastTo);
       sq.classList.toggle("selected", name === this.selected);
-      sq.classList.toggle("check", name === this.check);
       sq.classList.toggle("target", targets.includes(name));
       sq.classList.toggle("capture", targets.includes(name) && !!piece);
       sq.classList.toggle("premove", name === preFrom || name === preTo);
@@ -162,6 +161,17 @@ export class Board {
     return out;
   }
 
+  // Briefly light up the king that is in check (shown only after an illegal attempt)
+  _flashCheck() {
+    const sq = this.squares[this.check];
+    if (!sq) return;
+    sq.classList.remove("check-flash");
+    void sq.offsetWidth;            // restart the animation if it is already running
+    sq.classList.add("check-flash");
+    clearTimeout(this._flashTimer);
+    this._flashTimer = setTimeout(() => sq.classList.remove("check-flash"), 1300);
+  }
+
   _setPremove(uci) {
     this.premove = uci;
     this.selected = null;
@@ -194,6 +204,14 @@ export class Board {
     if (this.selected && this._targetsFrom(this.selected).includes(square)) {
       this._attempt(this.selected, square);
       return;
+    }
+    // In check, trying a piece that can't move, or a square the selected piece can't reach,
+    // is an illegal attempt: point at the king.
+    const piece = this.pieces[square];
+    const ownPiece = piece && piece[0] === this.myColor;
+    if (this.interactive && this.check && square !== this.selected &&
+        ((ownPiece && !this._targetsFrom(square).length) || (this.selected && !ownPiece))) {
+      this._flashCheck();
     }
     if (this._targetsFrom(square).length) {
       this.selected = square;
@@ -237,6 +255,8 @@ export class Board {
     const to = this._squareAt(e.clientX, e.clientY);
     if (to && to !== from && this._targetsFrom(from).includes(to)) {
       this._attempt(from, to);
+    } else if (to && to !== from && this.interactive && this.check) {
+      this._flashCheck();
     }
     // dropping back on the origin keeps it selected for a click-click move
   }
