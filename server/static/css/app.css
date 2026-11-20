@@ -162,7 +162,17 @@ h1.title { margin: 0 0 26px; font-size: 36px; line-height: 1.1; font-weight: 600
   column-gap: 40px;
   justify-content: center;
 }
-.board-wrap { grid-area: board; width: min(calc(100vh - 150px), calc(100vw - 380px), 700px); min-width: 320px; }
+.board-wrap { grid-area: board; width: min(calc(100vh - 220px), calc(100vw - 380px), 700px); min-width: 320px; }
+
+/* captured pieces + material difference, above and below the board */
+.captures { display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 2px; }
+#captures-top { margin-bottom: 6px; }
+#captures-bottom { margin-top: 6px; }
+.captures .group { display: flex; }
+.captures .cap { position: relative; width: 22px; height: 22px; flex: none; }
+.captures .cap + .cap { margin-left: -11px; }      /* pieces of one kind overlap a little */
+.captures .cap .piece-svg { width: 100%; height: 100%; }
+.captures .delta { font-family: var(--mono); font-size: 13px; color: var(--muted); }
 #top-player { grid-area: top; }
 #panel { grid-area: panel; }
 #moves-box { grid-area: moves; }

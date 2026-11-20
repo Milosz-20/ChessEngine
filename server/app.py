@@ -36,7 +36,17 @@ async def lifespan(app):
 
 
 app = FastAPI(title="Szachy", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
-app.mount("/static", StaticFiles(directory=STATIC), name="static")
+class RevalidatedStatic(StaticFiles):
+    """Static files the browser must revalidate (cheap 304 via ETag), so a new deploy is
+    picked up immediately instead of running stale JS/CSS from the cache."""
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
+app.mount("/static", RevalidatedStatic(directory=STATIC), name="static")
 
 
 # ---------- helpers ----------

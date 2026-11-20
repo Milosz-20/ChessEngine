@@ -322,3 +322,8 @@ def test_guest_can_join_and_play(server):
     anon = Player(server, register=False)
     assert anon.post("/api/login", json={"username": me["username"], "password": ""}).status_code == 401
     assert anon.post("/api/register", json={"username": "Gosc-1", "password": "sekret123"}).status_code == 400
+
+
+def test_static_files_are_revalidated(server):
+    r = server.get("/static/js/game.js")
+    assert r.status_code == 200 and r.headers["cache-control"] == "no-cache"

@@ -1,6 +1,7 @@
 import { api, requireUser, renderTopbar, TERMINATION, resultText, outcomeFor, timeControlText,
          colorDot, toast, escapeHtml } from "./common.js";
-import { Board } from "./board.js";
+import { Board, parseFen } from "./board.js";
+import { pieceSvg } from "./pieces.js";
 
 const gameId = location.pathname.split("/").pop();
 const user = await requireUser({ guestPrompt: true });
@@ -111,6 +112,7 @@ function render() {
     premove: live ? premove : null,
   });
   renderPlayers();
+  renderCaptures(state.fens[ply]);
   renderMoves(ply);
   renderPanel();
   renderControls();
@@ -137,6 +139,45 @@ function renderPlayers() {
       ? `<span class="who">${escapeHtml(name)}</span><small>${sub}</small>`
       : `<span class="who muted">czeka na gracza…</span><small>${color === "white" ? "białe" : "czarne"}</small>`;
     box.dataset.color = color;
+  }
+}
+
+// ---------- captured pieces ----------
+
+const START_COUNT = { p: 8, n: 2, b: 2, r: 2, q: 1 };
+const VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9 };
+const CAPTURE_ORDER = ["p", "n", "b", "r", "q"];
+
+// What each side has taken (pieces missing from the opponent's starting set) and who is ahead.
+function materialFromFen(fen) {
+  const count = { w: { p: 0, n: 0, b: 0, r: 0, q: 0 }, b: { p: 0, n: 0, b: 0, r: 0, q: 0 } };
+  for (const piece of Object.values(parseFen(fen))) {
+    if (piece[1] !== "k") count[piece[0]][piece[1]]++;
+  }
+  const score = c => CAPTURE_ORDER.reduce((sum, t) => sum + count[c][t] * VALUE[t], 0);
+  const takenFrom = c => {
+    const taken = {};
+    // a promoted piece makes its type "over-full"; it then cancels one captured pawn
+    let extra = 0;
+    for (const t of ["n", "b", "r", "q"]) extra += Math.max(0, count[c][t] - START_COUNT[t]);
+    for (const t of CAPTURE_ORDER) taken[t] = Math.max(0, START_COUNT[t] - count[c][t]);
+    taken.p = Math.max(0, taken.p - extra);
+    return taken;
+  };
+  return { white: takenFrom("b"), black: takenFrom("w"), diff: score("w") - score("b") };
+}
+
+function renderCaptures(fen) {
+  const m = materialFromFen(fen);
+  const bottom = myOrientation();
+  const top = bottom === "white" ? "black" : "white";
+  for (const [id, color] of [["captures-top", top], ["captures-bottom", bottom]]) {
+    const taken = m[color];                       // opponent pieces this player has captured
+    const victim = color === "white" ? "b" : "w";
+    const groups = CAPTURE_ORDER.filter(t => taken[t]).map(t =>
+      `<span class="group">${`<span class="cap">${pieceSvg(victim + t)}</span>`.repeat(taken[t])}</span>`).join("");
+    const lead = color === "white" ? m.diff : -m.diff;
+    el(id).innerHTML = groups + (lead > 0 ? `<span class="delta">+${lead}</span>` : "");
   }
 }
 
