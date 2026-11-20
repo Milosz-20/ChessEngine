@@ -169,7 +169,7 @@ export class Board {
     void sq.offsetWidth;            // restart the animation if it is already running
     sq.classList.add("check-flash");
     clearTimeout(this._flashTimer);
-    this._flashTimer = setTimeout(() => sq.classList.remove("check-flash"), 1300);
+    this._flashTimer = setTimeout(() => sq.classList.remove("check-flash"), 850);
   }
 
   _setPremove(uci) {

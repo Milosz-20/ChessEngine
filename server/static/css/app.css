@@ -247,7 +247,7 @@ h1.title { margin: 0 0 26px; font-size: 36px; line-height: 1.1; font-weight: 600
   content: ""; position: absolute; inset: -18%; z-index: 1; pointer-events: none; border-radius: 50%;
   background:
     radial-gradient(circle, rgba(168,87,90,.7) 0%, rgba(168,87,90,.42) 30%, rgba(168,87,90,.16) 50%, rgba(168,87,90,0) 68%);
-  animation: check-glow 1.3s cubic-bezier(.25,.8,.3,1) forwards;
+  animation: check-glow .85s cubic-bezier(.25,.8,.3,1) forwards;
 }
 .sq.check-flash .piece { animation: check-shake .42s cubic-bezier(.36,.07,.19,.97); }
 .sq.check-flash { z-index: 2; overflow: visible; }
