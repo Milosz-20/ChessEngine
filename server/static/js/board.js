@@ -120,6 +120,8 @@ export class Board {
     if (this.interactive) {
       const out = new Set();
       for (const m of this.legal) if (m.startsWith(square)) out.add(m.slice(2, 4));
+      // In check, still hint every piece's normal moves; the illegal ones flash the king when tried
+      if (this.check) for (const t of this._pseudoTargets(square, true)) out.add(t);
       return [...out];
     }
     if (this.premovable) return this._premoveTargets(square);
@@ -129,15 +131,26 @@ export class Board {
   // Squares a piece could go to on our next turn, judged by how it moves and ignoring
   // what the opponent may do (their pieces might move away, so sliders pass through them).
   _premoveTargets(square) {
+    return this._pseudoTargets(square, false);
+  }
+
+  // Squares a piece can reach by how it moves, ignoring checks and pins.
+  // live=true: the current position (sliders stop at enemies, pawns capture only pieces, no castling).
+  // live=false: premove guess (sliders pass enemies that may move away, pawn diagonals always shown).
+  _pseudoTargets(square, live) {
     const piece = this.pieces[square];
     if (!piece || piece[0] !== this.myColor) return [];
     const f0 = FILES.indexOf(square[0]), r0 = Number(square[1]) - 1;
     const own = (f, r) => { const p = this.pieces[squareName(f, r)]; return p && p[0] === this.myColor; };
     const on = (f, r) => f >= 0 && f < 8 && r >= 0 && r < 8;
     const out = [];
+    const enemy = (f, r) => { const p = this.pieces[squareName(f, r)]; return p && p[0] !== this.myColor; };
     const add = (f, r) => { if (on(f, r) && !own(f, r)) out.push(squareName(f, r)); };
     const ray = (df, dr) => {
-      for (let f = f0 + df, r = r0 + dr; on(f, r) && !own(f, r); f += df, r += dr) out.push(squareName(f, r));
+      for (let f = f0 + df, r = r0 + dr; on(f, r) && !own(f, r); f += df, r += dr) {
+        out.push(squareName(f, r));
+        if (live && enemy(f, r)) break;
+      }
     };
     const type = piece[1];
     if (type === "n") {
@@ -145,13 +158,22 @@ export class Board {
     } else if (type === "k") {
       for (let df = -1; df <= 1; df++) for (let dr = -1; dr <= 1; dr++) if (df || dr) add(f0 + df, r0 + dr);
       const home = this.myColor === "w" ? 0 : 7;
-      if (f0 === 4 && r0 === home) { add(6, home); add(2, home); }
+      if (!live && f0 === 4 && r0 === home) { add(6, home); add(2, home); }
     } else if (type === "p") {
       const dir = this.myColor === "w" ? 1 : -1;
-      add(f0, r0 + dir);
-      if (r0 === (this.myColor === "w" ? 1 : 6) && !own(f0, r0 + dir)) add(f0, r0 + 2 * dir);
-      add(f0 - 1, r0 + dir);
-      add(f0 + 1, r0 + dir);
+      const empty = (f, r) => on(f, r) && !this.pieces[squareName(f, r)];
+      if (live) {
+        if (empty(f0, r0 + dir)) {
+          add(f0, r0 + dir);
+          if (r0 === (this.myColor === "w" ? 1 : 6) && empty(f0, r0 + 2 * dir)) add(f0, r0 + 2 * dir);
+        }
+        for (const df of [-1, 1]) if (on(f0 + df, r0 + dir) && enemy(f0 + df, r0 + dir)) add(f0 + df, r0 + dir);
+      } else {
+        add(f0, r0 + dir);
+        if (r0 === (this.myColor === "w" ? 1 : 6) && !own(f0, r0 + dir)) add(f0, r0 + 2 * dir);
+        add(f0 - 1, r0 + dir);
+        add(f0 + 1, r0 + dir);
+      }
     } else {
       const dirs = [];
       if (type !== "b") dirs.push([1, 0], [-1, 0], [0, 1], [0, -1]);
@@ -205,13 +227,6 @@ export class Board {
       this._attempt(this.selected, square);
       return;
     }
-    // In check, picking up a piece that has no legal move is an illegal attempt: point at the
-    // king. Clicking an empty or enemy square just deselects and never flashes.
-    const piece = this.pieces[square];
-    if (this.interactive && this.check && piece && piece[0] === this.myColor &&
-        !this._targetsFrom(square).length) {
-      this._flashCheck();
-    }
     if (this._targetsFrom(square).length) {
       this.selected = square;
       this.render();
@@ -254,8 +269,6 @@ export class Board {
     const to = this._squareAt(e.clientX, e.clientY);
     if (to && to !== from && this._targetsFrom(from).includes(to)) {
       this._attempt(from, to);
-    } else if (to && to !== from && this.interactive && this.check) {
-      this._flashCheck();
     }
     // dropping back on the origin keeps it selected for a click-click move
   }
@@ -269,7 +282,11 @@ export class Board {
     }
     const base = from + to;
     const options = this.legal.filter(m => m.startsWith(base));
-    if (!options.length) return;
+    if (!options.length) {
+      // a real attempt to make a move that the check forbids
+      if (this.check) { this.selected = null; this.render(); this._flashCheck(); }
+      return;
+    }
     if (options.length > 1) {
       this._askPromotion(from, to);
       return;
