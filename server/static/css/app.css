@@ -173,7 +173,7 @@ h1.title { margin: 0 0 26px; font-size: 36px; line-height: 1.1; font-weight: 600
 .captures .cap + .cap { margin-left: -11px; }      /* pieces of one kind overlap a little */
 .captures .cap .piece-svg { width: 100%; height: 100%; }
 /* sits on the same line as the pieces' feet */
-.captures .delta { font-family: var(--mono); font-size: 13px; line-height: 1; color: var(--muted); margin-left: -7px; padding-bottom: 3px; }
+.captures .delta { font-family: var(--mono); font-size: 13px; line-height: 1; color: var(--muted); margin-left: -7px; padding-bottom: 0.5px; }
 #top-player { grid-area: top; }
 #panel { grid-area: panel; }
 #moves-box { grid-area: moves; }
